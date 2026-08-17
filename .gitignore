@@ -5,9 +5,6 @@ node_modules/
 # Build artifacts
 dist/
 
-# Testing
-__tests__/
-
 # Vite/Vitest cache
 node_modules/.vite/
 ```
