@@ -1,23 +1,13 @@
 ```
-# Build artifacts
-dist/
-build/
-*.js
-*.css
-
 # Dependencies
 node_modules/
 
-# Logs and temp files
-*.log
-*.tmp
+# Build artifacts
+dist/
 
-# Environment
-.env
-.env.local
-*.env.*
+# Testing
+__tests__/
 
-# Editors
-.vscode/
-.idea/
+# Vite/Vitest cache
+node_modules/.vite/
 ```
