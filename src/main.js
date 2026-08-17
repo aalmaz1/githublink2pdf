@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const resume_builder_1 = require("./resume-builder");
 const print_utils_1 = require("./print-utils");
 const github_provider_1 = require("./github-provider");
+const i18n_1 = require("./i18n");
 let currentResumeData = null;
 let currentTextAlign = 'left';
 const defaultData = {
@@ -102,6 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (!container)
         return;
+    // Initialize i18n and set initial html lang attribute
+    (0, i18n_1.initLanguage)();
     // Initial render
     updateUI(defaultData, container);
     // Theme Toggle (Light/Dark for UI only)
@@ -115,7 +118,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.removeAttribute('data-theme');
         }
         if (themeToggleBtn) {
-            themeToggleBtn.textContent = isDarkTheme ? '☀️ Светлая' : '🌙 Темная';
+            // Use localized button text
+            themeToggleBtn.textContent = isDarkTheme
+                ? (0, i18n_1.t)('ui.theme_light', '☀️ Light')
+                : (0, i18n_1.t)('ui.theme_dark', '🌙 Dark');
         }
     });
     // Design Buttons (Classic, Modern, Minimal)
@@ -151,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     importBtn === null || importBtn === void 0 ? void 0 : importBtn.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
         const input = githubInput.value.trim();
         if (!input) {
-            alert('Please enter a username');
+            alert((0, i18n_1.t)('ui.error_enter_username', 'Please enter a username'));
             return;
         }
         try {
@@ -164,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateUI(data, container);
         }
         catch (e) {
-            alert('GitHub User not found or API limit reached');
+            alert((0, i18n_1.t)('ui.error_github_not_found', 'GitHub User not found or API limit reached'));
         }
         finally {
             if (loader)

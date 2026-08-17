@@ -1,38 +1,21 @@
 ```
+# Build artifacts
+dist/
+build/
+*.js.map
+
 # Dependencies
 node_modules/
 
-# Compiled JavaScript
-*.js.map
-*.min.js
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
 
 # Environment
 .env
 .env.local
 *.env.*
-
-# Logs
-*.log
-
-# Coverage reports
-coverage/
-*.lcov
-
-# Temporary files
-*.tmp
-*.temp
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Build outputs
-dist/
-build/
 ```

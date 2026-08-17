@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderResume = renderResume;
+const i18n_1 = require("./i18n");
 function renderResume(data, container) {
     var _a, _b, _c;
     container.innerHTML = '';
@@ -12,17 +13,17 @@ function renderResume(data, container) {
         .filter(Boolean).join(' | ');
     header.appendChild(createLine('p', contacts));
     container.appendChild(header);
-    // 2. Sections
+    // 2. Sections with localized headers
     if ((_a = data.experience) === null || _a === void 0 ? void 0 : _a.length) {
-        container.appendChild(renderSection('Experience', data.experience));
+        container.appendChild(renderSection((0, i18n_1.t)('common.experience', 'Experience'), data.experience));
     }
     if ((_b = data.education) === null || _b === void 0 ? void 0 : _b.length) {
-        container.appendChild(renderSection('Education', data.education));
+        container.appendChild(renderSection((0, i18n_1.t)('common.education', 'Education'), data.education));
     }
     // 3. Skills Grid
     if ((_c = data.skills) === null || _c === void 0 ? void 0 : _c.length) {
         const section = createBlock('section-block');
-        section.appendChild(createLine('h3', 'Skills'));
+        section.appendChild(createLine('h3', (0, i18n_1.t)('common.skills', 'Skills')));
         const skillsList = document.createElement('div');
         skillsList.className = 'skills-grid';
         data.skills.forEach(skill => {

@@ -1,143 +1,100 @@
-# ATS Checker Localization Fix - Implementation Guide
+# Исправление багов локализации и UI в ATS Checker
 
-## Overview
+## Выполненные исправления
 
-This document describes the fixes implemented for the ATS Checker component to address:
-1. Duplicate status icons (✅, ⚠️) in issue messages
-2. Missing localization for ATS checker results
-3. Hardcoded section headers ("Education", "Summary")
-4. HTML `lang` attribute not updating on language change
+### 1. Удаление дублирующихся эмодзи (✅⚠️)
 
-## Files Created/Modified
+**Проблема:** Иконки статуса отображались дважды — в `.ats-panel-issue-icon` и в начале текста `.ats-panel-issue-text`.
 
-### New Files
+**Решение:** В модуле `/src/i18n/index.ts` реализована функция `cleanDuplicateEmojis()`, которая удаляет ведущие эмодзи из текста сообщения, если иконка уже отображается отдельно.
 
-#### 1. `/src/i18n/en.json`
-English translation file containing all UI strings, ATS checker messages, and common terms.
-
-#### 2. `/src/i18n/ru.json`
-Russian translation file with complete translations of all English strings.
-
-#### 3. `/src/i18n/index.ts`
-Core i18n module providing:
-- `setLanguage(lang)` - Sets current language and updates `<html lang>` attribute
-- `getLanguage()` - Returns current language code
-- `initLanguage()` - Initializes language from localStorage or browser settings
-- `t(key, fallback)` - Translation function for any key path
-- `mapServerMessage(englishMessage)` - Maps English server messages to translations
-- `cleanDuplicateEmojis(text, iconType)` - Removes duplicate emojis from message text
-- `translateSection(sectionName)` - Translates section headers
-
-#### 4. `/src/ats-checker.ts`
-ATS Checker panel component with proper i18n support:
-- Renders issues with single icon in separate container
-- Cleans duplicate emojis from message text
-- Uses localized messages via `mapServerMessage()`
-
-### Modified Files
-
-#### 5. `/src/resume-builder.ts`
-- Added imports for `t` and `translateSection` from i18n module
-- Changed hardcoded section titles to use `t('common.education')`, etc.
-
-#### 6. `/src/main.ts`
-- Added i18n initialization on DOMContentLoaded
-- Updated theme toggle button to use localized text
-- Updated error messages to use translation function
-
-#### 7. `/src/styles.css`
-- Added styles for `.ats-panel`, `.ats-panel-issue`, `.ats-panel-issue-icon`, `.ats-panel-issue-text`
-- Added language selector styles
-
-#### 8. `/tsconfig.json`
-- Added `resolveJsonModule: true` for JSON imports
-- Added `esModuleInterop`, `allowSyntheticDefaultImports`, `moduleResolution`
-
-## Usage Examples
-
-### 1. Fixing Duplicate Icons
-
-**Before (buggy):**
-```javascript
-// Icon displayed in separate container AND in text
-const issueDiv = document.createElement('div');
-issueDiv.innerHTML = `
-  <span class="ats-panel-issue-icon">✅</span>
-  <span class="ats-panel-issue-text">✅ Education section present</span>
-`;
-```
-
-**After (fixed):**
 ```typescript
-import { renderIssueItem } from './ats-checker';
-
-const issue = {
-  status: 'pass' as const,
-  message: 'Education section present',
-};
-
-const issueElement = renderIssueItem(issue);
-// Result: 
-// <div class="ats-panel-issue">
-//   <span class="ats-panel-issue-icon">✅</span>
-//   <span class="ats-panel-issue-text">Education section present</span>
-// </div>
+export function cleanDuplicateEmojis(text: string, iconType?: 'pass' | 'warning' | 'fail'): string {
+  const emojiPatterns: Record<string, RegExp> = {
+    pass: /^[✅✔️✓]\s*/,
+    warning: /^[⚠️⚠❗]\s*/,
+    fail: /^[❌✖️×]\s*/,
+  };
+  // Удаляем дублирующийся эмодзи из начала строки
+  if (iconType && emojiPatterns[iconType]) {
+    return text.replace(emojiPatterns[iconType], '');
+  }
+  return text;
+}
 ```
 
-### 2. Localizing Section Headers
-
-**Before (hardcoded):**
+В компоненте `/src/ats-checker.ts` функция применяется при рендеринге:
 ```typescript
-container.appendChild(renderSection('Education', data.education));
-container.appendChild(renderSection('Summary', summaryData));
+const cleanedMessage = cleanDuplicateEmojis(translatedMessage, issue.status);
+textContainer.textContent = cleanedMessage;
 ```
 
-**After (localized):**
+### 2. Локализация всех сообщений ATS Checker
+
+**Проблема:** Сообщения от сервера ("Contact section present", "Summary length is optimal") оставались на английском при выборе русского языка.
+
+**Решение:** 
+- Добавлены новые ключи перевода в `/src/i18n/en.json` и `/src/i18n/ru.json`:
+  - `contact_section_present` / `contact_section_missing`
+  - `summary_title_filled` / `summary_title_empty`
+  - `experience_section_present` / `experience_section_missing`
+  
+- Реализована функция-маппер `mapServerMessage()` в `/src/i18n/index.ts`, которая сопоставляет английские сообщения с ключами переводов:
+
 ```typescript
-import { t } from './i18n';
-
-container.appendChild(renderSection(t('common.education'), data.education));
-container.appendChild(renderSection(t('common.summary'), summaryData));
+export function mapServerMessage(englishMessage: string): string {
+  const directMappings: Record<string, string> = {
+    'Contact section present': 'ats_checker.messages.contact_section_present',
+    'Summary/Title section filled': 'ats_checker.messages.summary_title_filled',
+    'Experience section present': 'ats_checker.messages.experience_section_present',
+    // ... другие маппинги
+  };
+  
+  if (directMappings[englishMessage]) {
+    return t(directMappings[englishMessage], englishMessage);
+  }
+  return englishMessage;
+}
 ```
 
-### 3. Updating HTML lang Attribute
+### 3. Локализация заголовков секций
 
-**Before:**
-```javascript
-// No language management
-document.documentElement.setAttribute('data-theme', 'dark');
-```
+**Проблема:** Заголовки "Education" и "Summary" были захардкожены.
 
-**After:**
+**Решение:** 
+- В `/src/i18n/index.ts` функция `translateSection()` маппит английские названия на ключи:
 ```typescript
-import { setLanguage, initLanguage } from './i18n';
-
-// Initialize on app start
-initLanguage(); // Automatically sets <html lang="en"> or <html lang="ru">
-
-// On language switch
-setLanguage('ru'); // Updates <html lang="ru">
+export function translateSection(section: string): string {
+  const sectionKeyMap: Record<string, string> = {
+    'Education': 'common.education',
+    'Summary': 'common.summary',
+    'Experience': 'common.experience',
+  };
+  return t(sectionKeyMap[section], section);
+}
 ```
 
-### 4. Translating Server Messages
-
-**Before:**
-```javascript
-// English messages always shown
-messageElement.textContent = serverResponse.message; 
-// "Education section present" (always English)
-```
-
-**After:**
+- В `/src/resume-builder.ts` используется `t('common.education')` вместо хардкода:
 ```typescript
-import { mapServerMessage } from './i18n';
-
-const translatedMessage = mapServerMessage(serverResponse.message);
-messageElement.textContent = translatedMessage;
-// "Раздел образования присутствует" (when Russian is selected)
+container.appendChild(renderSection(t('common.education', 'Education'), data.education));
 ```
 
-## i18n JSON Structure
+### 4. Обновление атрибута `lang` у тега `<html>`
+
+**Проблема:** Атрибут `html lang` оставался "en" при переключении языка.
+
+**Решение:** В функции `setLanguage()` добавлено обновление атрибута:
+```typescript
+export function setLanguage(lang: SupportedLanguage): void {
+  if (translations[lang]) {
+    currentLanguage = lang;
+    document.documentElement.lang = lang; // ← Обновление lang атрибута
+    localStorage.setItem('preferred_language', lang);
+  }
+}
+```
+
+## Структура i18n файлов
 
 ```json
 {
@@ -150,108 +107,31 @@ messageElement.textContent = translatedMessage;
   "ats_checker": {
     "title": "Проверка ATS",
     "messages": {
-      "education_section_present": "Раздел образования присутствует",
-      "summary_length_optimal": "Длина резюме оптимальна"
+      "contact_section_present": "Раздел контактов присутствует",
+      "summary_title_filled": "Раздел резюме/заголовка заполнен",
+      "experience_section_present": "Раздел опыта работы присутствует"
     }
   },
-  "ui": {
-    "theme_dark": "🌙 Темная",
-    "theme_light": "☀️ Светлая"
-  }
+  "ui": { ... }
 }
 ```
 
-## Key Functions Explained
+## Файлы, изменённые в рамках исправления
 
-### `cleanDuplicateEmojis(text, iconType)`
+| Файл | Изменения |
+|------|-----------|
+| `/src/i18n/index.ts` | Добавлены `mapServerMessage()`, `cleanDuplicateEmojis()`, `translateSection()`, обновлён `setLanguage()` |
+| `/src/i18n/en.json` | Добавлены ключи для `contact_section_*`, `summary_title_*` |
+| `/src/i18n/ru.json` | Добавлены русские переводы новых ключей |
+| `/src/ats-checker.ts` | Интегрированы функции очистки эмодзи и локализации |
+| `/src/resume-builder.ts` | Заголовки секций используют `t()` |
 
-Removes leading emoji characters from message text when an icon is already displayed separately.
+## Проверка сборки
 
-```typescript
-// Example usage
-const message = "✅ Education section present";
-const cleaned = cleanDuplicateEmojis(message, 'pass');
-console.log(cleaned); // "Education section present"
-
-// Works with various emoji variants
-cleanDuplicateEmojis("✔️ Contact info complete", 'pass'); // "Contact info complete"
-cleanDuplicateEmojis("⚠️ Summary too short", 'warning'); // "Summary too short"
+```bash
+npm run build
+# ✓ 12 modules transformed
+# ✓ built in 99ms
 ```
 
-### `mapServerMessage(englishMessage)`
-
-Maps English server messages to their translations using the i18n system.
-
-```typescript
-// Direct mapping
-mapServerMessage("Education section present");
-// Returns: "Раздел образования присутствует" (in Russian)
-
-// Fallback to original if no translation found
-mapServerMessage("Unknown message");
-// Returns: "Unknown message"
-```
-
-### `setLanguage(lang)`
-
-Sets the application language and updates the HTML lang attribute.
-
-```typescript
-setLanguage('ru');
-// Updates: <html lang="ru">
-// Stores preference in localStorage
-
-setLanguage('en');
-// Updates: <html lang="en">
-```
-
-## Testing
-
-To verify the fixes:
-
-1. **Duplicate Icons Test:**
-   ```typescript
-   import { cleanDuplicateEmojis } from './i18n';
-   
-   console.assert(
-     cleanDuplicateEmojis("✅ Test message", 'pass') === "Test message",
-     "Should remove duplicate checkmark emoji"
-   );
-   ```
-
-2. **Translation Test:**
-   ```typescript
-   import { t, setLanguage } from './i18n';
-   
-   setLanguage('ru');
-   console.assert(
-     t('common.education') === "Образование",
-     "Should return Russian translation"
-   );
-   ```
-
-3. **HTML lang Attribute Test:**
-   ```typescript
-   import { setLanguage } from './i18n';
-   
-   setLanguage('ru');
-   console.assert(
-     document.documentElement.lang === 'ru',
-     "Should update html lang attribute"
-   );
-   ```
-
-## Browser Compatibility
-
-The implementation uses standard Web APIs:
-- `localStorage` - Supported in all modern browsers
-- `navigator.language` - Supported in all modern browsers
-- ES6 modules - Supported in all modern browsers
-
-## Future Enhancements
-
-1. Add more languages by creating new JSON files in `/src/i18n/`
-2. Implement language switcher UI component
-3. Add pluralization support for count-based messages
-4. Support for RTL languages (Arabic, Hebrew)
-5. Lazy loading of translation files for better performance
+Сборка проходит без ошибок.
