@@ -116,23 +116,64 @@ export function mapServerMessage(englishMessage: string): string {
     messageToKeyMap[value] = `ats_checker.messages.${key}`;
   }
   
-  // Also add direct key mappings for common patterns
+  // Also add direct key mappings for common patterns (without emojis)
   const directMappings: Record<string, string> = {
+    // Structure messages
+    'Contact section present': 'ats_checker.messages.contact_section_present',
+    'No contact information section present': 'ats_checker.messages.contact_section_missing',
+    'Summary/Title section filled': 'ats_checker.messages.summary_title_filled',
+    'Missing Summary section': 'ats_checker.messages.missing_summary_section',
+    'Experience section present': 'ats_checker.messages.experience_section_present',
+    'Experience or project section is missing': 'ats_checker.messages.experience_section_missing',
+    'No projects found': 'ats_checker.messages.no_projects_found',
+    'Projects and education compensate for lack of formal experience': 'ats_checker.messages.projects_education_compensate',
+    'Skills section present': 'ats_checker.messages.skills_section_present',
+    'Skills section is empty': 'ats_checker.messages.skills_section_missing',
     'Education section present': 'ats_checker.messages.education_section_present',
-    'Education section missing': 'ats_checker.messages.education_section_missing',
+    'Education section is present': 'ats_checker.messages.education_section_present_alt',
+    // Contact messages
+    'Email is valid': 'ats_checker.messages.email_valid',
+    'Email is invalid': 'ats_checker.messages.email_invalid',
+    'Email is missing': 'ats_checker.messages.email_missing',
+    'Phone is provided': 'ats_checker.messages.phone_provided',
+    'Phone is missing': 'ats_checker.messages.phone_missing',
+    'LinkedIn is provided': 'ats_checker.messages.linkedin_provided',
+    'Missing LinkedIn': 'ats_checker.messages.linkedin_missing',
+    'GitHub is provided': 'ats_checker.messages.github_provided',
+    'Location is provided': 'ats_checker.messages.location_provided',
+    'Location is missing (recommended)': 'ats_checker.messages.location_missing',
+    'Контактная информация отсутствует': 'ats_checker.messages.contact_info_missing_ru',
+    // Summary messages
     'Summary length is optimal': 'ats_checker.messages.summary_length_optimal',
     'Summary is too short': 'ats_checker.messages.summary_too_short',
-    'Summary is too long': 'ats_checker.messages.summary_too_long',
-    'Contact information is complete': 'ats_checker.messages.contact_info_complete',
-    'Contact information is incomplete': 'ats_checker.messages.contact_info_incomplete',
-    'Skills section present': 'ats_checker.messages.skills_section_present',
-    'Skills section missing': 'ats_checker.messages.skills_section_missing',
-    'Experience section present': 'ats_checker.messages.experience_section_present',
-    'Experience section missing': 'ats_checker.messages.experience_section_missing',
+    'Summary is too long. Recommended 3-50 words': 'ats_checker.messages.summary_too_long',
+    'Summary is missing or empty': 'ats_checker.messages.summary_missing',
+    // Resume score messages
+    'Resume is ATS-friendly and optimized!': 'ats_checker.messages.resume_ats_friendly',
+    'Resume is good but can be improved': 'ats_checker.messages.resume_good_improve',
+    'Resume needs improvement for ATS filters': 'ats_checker.messages.resume_needs_improvement',
+    'Resume will likely be rejected by ATS systems': 'ats_checker.messages.resume_rejected',
+    // Keywords messages
     'Keywords found': 'ats_checker.messages.keywords_found',
     'Keywords missing': 'ats_checker.messages.keywords_missing',
+    // Action verbs
+    'Use action verbs (developed, created, implemented) in experience descriptions': 'ats_checker.messages.use_action_verbs',
+    'Action verbs used in experience descriptions': 'ats_checker.messages.action_verbs_used',
+    // Dates
+    'Date formats are correct, no significant gaps': 'ats_checker.messages.date_formats_correct',
+    // Experience
+    'Student resume includes project evidence': 'ats_checker.messages.student_project_evidence',
+    'Student resume is missing both experience and project evidence': 'ats_checker.messages.student_missing_experience_projects',
+    'Experience section is empty': 'ats_checker.messages.experience_section_empty',
+    'Sufficient work experience (3+ positions)': 'ats_checker.messages.sufficient_work_experience',
+    'Has work experience': 'ats_checker.messages.has_work_experience',
+    // Education
+    'Student profile should include education information': 'ats_checker.messages.student_should_include_education',
+    'Education section is missing. Add relevant degrees or certifications': 'ats_checker.messages.education_section_missing_alt',
+    // Formatting
     'Formatting is valid': 'ats_checker.messages.formatting_valid',
     'Formatting issues detected': 'ats_checker.messages.formatting_issues',
+    // File size
     'File size is optimal': 'ats_checker.messages.file_size_optimal',
     'File size is too large': 'ats_checker.messages.file_size_too_large',
   };
@@ -155,22 +196,22 @@ export function mapServerMessage(englishMessage: string): string {
  * Clean duplicate emojis from ATS checker issue text
  * If an icon is already displayed separately, remove it from the message text
  * @param text - The message text that may contain duplicate emojis
- * @param iconType - The type of icon already displayed ('pass', 'warning', 'fail')
+ * @param iconType - The type of icon already displayed ('success', 'warning', 'error')
  * @returns Cleaned text without duplicate leading emojis
  */
-export function cleanDuplicateEmojis(text: string, iconType?: 'pass' | 'warning' | 'fail'): string {
+export function cleanDuplicateEmojis(text: string, iconType?: 'success' | 'warning' | 'error'): string {
   if (!text) return text;
   
   // Define emoji patterns that might be duplicated
-  const emojiPatterns: Record<string, RegExp> = {
-    pass: /^[✅✔️✓]\s*/,
+  const typeToPattern: Record<string, RegExp> = {
+    success: /^[✅✔️✓]\s*/,
     warning: /^[⚠️⚠❗]\s*/,
-    fail: /^[❌✖️×]\s*/,
+    error: /^[❌✖️×]\s*/,
   };
   
   // If we know the icon type, remove that specific emoji
-  if (iconType && emojiPatterns[iconType]) {
-    return text.replace(emojiPatterns[iconType], '');
+  if (iconType && typeToPattern[iconType]) {
+    return text.replace(typeToPattern[iconType], '');
   }
   
   // Otherwise, remove any leading status emoji

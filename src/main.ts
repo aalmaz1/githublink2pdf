@@ -8,6 +8,7 @@ import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
 import { DESIGNS, getRandomDesign, DesignTemplate } from './designs/design-templates';
 import { logger } from './utils/logger';
+import { mapServerMessage, cleanDuplicateEmojis } from './i18n/index';
 
 let currentResumeData: ResumeData | null = null;
 let currentTextAlign: 'left' | 'center' | 'justify' = 'left';
@@ -495,13 +496,19 @@ function showATSResultPanel(result: ATSResult): void {
     </div>
     ${breakdownHtml}
     <div class="ats-panel-issues">
-      <h4 class="ats-issues-title">📋 Рекомендации</h4>
-      ${result.issues.map(issue => `
+      <h4 class="ats-issues-title">${currentLang === 'ru' ? '📋 Рекомендации' : currentLang === 'ko' ? '📋 권장 사항' : '📋 Recommendations'}</h4>
+      ${result.issues.map(issue => {
+        // Translate the message using i18n
+        const translatedMessage = mapServerMessage(issue.message);
+        // Clean duplicate emojis since icon is shown separately
+        const cleanedMessage = cleanDuplicateEmojis(translatedMessage, issue.type as 'success' | 'warning' | 'error');
+        return `
         <div class="ats-panel-issue issue-${issue.type}">
           <span class="ats-panel-issue-icon">${getIssueIcon(issue.type)}</span>
-          <span class="ats-panel-issue-text">${issue.message}</span>
+          <span class="ats-panel-issue-text">${cleanedMessage}</span>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
   `;
   
