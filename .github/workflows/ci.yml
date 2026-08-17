@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type Check
+        run: npm run typecheck   # если у вас есть этот скрипт, иначе удалите
+
+      - name: Unit Test
+        run: npm run test        # уже проверяет ATS через юнит-тесты (золотой набор)
+
+      - name: Build
+        run: npm run build
+
+      # (Опционально) Генерация coverage-отчёта (исправленная команда)
+      - name: Generate coverage report
+        run: npm run coverage -- --coverage --coverage.reporters=json-summary,text
+        continue-on-error: true   # временно, пока не настроите coverage
+
+      # (Опционально) Загрузка coverage в Codecov
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/coverage-summary.json
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false

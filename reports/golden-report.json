@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-07-06T10:18:25.459Z",
+  "totalTests": 5,
+  "passedTests": 5,
+  "averageDifference": 1.4,
+  "results": [
+    {
+      "passed": true,
+      "actualScore": 0,
+      "expectedScore": 0,
+      "difference": 0,
+      "description": "Empty resume - should score very low"
+    },
+    {
+      "passed": true,
+      "actualScore": 96,
+      "expectedScore": 95,
+      "difference": 1,
+      "description": "Strong technical resume - should score high"
+    },
+    {
+      "passed": true,
+      "actualScore": 91,
+      "expectedScore": 90,
+      "difference": 1,
+      "description": "Student resume with projects - should score moderate-high"
+    },
+    {
+      "passed": true,
+      "actualScore": 63,
+      "expectedScore": 65,
+      "difference": 2,
+      "description": "Resume missing contact info - should score low-moderate"
+    },
+    {
+      "passed": true,
+      "actualScore": 93,
+      "expectedScore": 90,
+      "difference": 3,
+      "description": "Design-focused resume - should score high based on design keywords"
+    }
+  ],
+  "metrics": {
+    "correlation": 0.986,
+    "mae": 1.4
+  }
+}

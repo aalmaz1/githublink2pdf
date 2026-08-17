@@ -1,6 +1,6 @@
 /**
  * Pretext-Inspired Typographic Engine
- * This module implements the Layout Primitive pattern from @chenglou/pretext
+ * This module implements the Layout Primitive pattern
  * logic, specifically extending the 'Editorial Engine' concept.
  */
 import { ResumeData, TimeBoundedEntity, SkillCategory } from './types';
@@ -33,15 +33,35 @@ export function renderResume(data: ResumeData, container: HTMLElement): void {
     const section = createBlock('section-block');
     section.appendChild(createLine('h3', t('common.skills', 'Skills')));
     
-    const skillsList = document.createElement('div');
+    const skillsList = document.createElement('ul');
     skillsList.className = 'skills-grid';
+    skillsList.style.listStyleType = 'disc';
+    skillsList.style.paddingLeft = '20px';
     
     data.skills.forEach(skill => {
-      const el = document.createElement('div');
-      el.textContent = typeof skill === 'string' 
-        ? skill 
-        : `${skill.category}: ${skill.items.join(', ')}`;
-      skillsList.appendChild(el);
+      if (typeof skill === 'string') {
+        // Если навык просто строка - добавляем как есть
+        const li = document.createElement('li');
+        li.textContent = skill;
+        skillsList.appendChild(li);
+      } else {
+        // Если навык объект с категорией и элементами
+        // Добавляем название категории жирным с использованием textContent для безопасности
+        const categoryLi = document.createElement('li');
+        const strongEl = document.createElement('strong');
+        strongEl.textContent = `${skill.category}:`;
+        categoryLi.appendChild(strongEl);
+        categoryLi.style.marginTop = '8px';
+        skillsList.appendChild(categoryLi);
+        
+        // Добавляем каждый элемент категории отдельным подпунктом
+        skill.items.forEach(item => {
+          const subLi = document.createElement('li');
+          subLi.textContent = item;
+          subLi.style.marginLeft = '20px';
+          skillsList.appendChild(subLi);
+        });
+      }
     });
     section.appendChild(skillsList);
     container.appendChild(section);
@@ -70,7 +90,20 @@ function renderSection(title: string, items: TimeBoundedEntity[]): HTMLElement {
   items.forEach(item => {
     const itemBlock = createBlock('entity-item');
     const headerLine = createLine('div', '');
-    headerLine.innerHTML = `<span><strong>${item.role}</strong> - ${item.institution}</span><span>${item.period}</span>`;
+    
+    // Безопасное создание HTML с использованием textContent вместо innerHTML
+    const leftSpan = document.createElement('span');
+    const roleOrgSpan = document.createElement('strong');
+    roleOrgSpan.textContent = item.role;
+    leftSpan.appendChild(roleOrgSpan);
+    const orgText = document.createTextNode(` - ${item.institution}`);
+    leftSpan.appendChild(orgText);
+    
+    const rightSpan = document.createElement('span');
+    rightSpan.textContent = item.period;
+    
+    headerLine.appendChild(leftSpan);
+    headerLine.appendChild(rightSpan);
     itemBlock.appendChild(headerLine);
 
     const ul = document.createElement('ul');
