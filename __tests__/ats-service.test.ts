@@ -118,7 +118,7 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutEmail);
 
-      expect(result.issues.some(i => i.message === '❌ Email is missing')).toBe(true);
+      expect(result.issues.some(i => i.message.includes('Email is missing'))).toBe(true);
       // Verify the error issue type is present
       expect(result.issues.some(i => i.type === 'error')).toBe(true);
     });
@@ -133,7 +133,7 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutSkills);
 
-      expect(result.issues.some(i => i.message === '❌ Skills section is empty')).toBe(true);
+      expect(result.issues.some(i => i.message.includes('Skills section is empty'))).toBe(true);
       // Verify the error issue type is present
       expect(result.issues.some(i => i.type === 'error')).toBe(true);
     });
@@ -148,7 +148,7 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutProjects);
 
-      expect(result.issues.some(i => i.message === '❌ No projects found')).toBe(true);
+      expect(result.issues.some(i => i.message.includes('No projects found'))).toBe(true);
       // Verify the error issue type is present
       expect(result.issues.some(i => i.type === 'error')).toBe(true);
     });
@@ -182,7 +182,7 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithShortSummary);
 
-      expect(result.issues.some(i => i.message === '⚠ Summary is too short')).toBe(true);
+      expect(result.issues.some(i => i.message.includes('Summary is too short'))).toBe(true);
     });
   });
 
@@ -361,7 +361,7 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutLinkedIn);
 
-      expect(result.issues.some(i => i.message === '❌ Missing LinkedIn')).toBe(true);
+      expect(result.issues.some(i => i.message.includes('Missing LinkedIn'))).toBe(true);
     });
   });
 

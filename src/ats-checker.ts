@@ -53,7 +53,16 @@ export function renderIssueItem(issue: ATSIssue): HTMLElement {
   const translatedMessage = mapServerMessage(issue.message);
   
   // Then, clean any duplicate emojis since we already have an icon
-  const cleanedMessage = cleanDuplicateEmojis(translatedMessage, issue.status);
+  // Map issue.status to the correct type for cleanDuplicateEmojis
+  const iconTypeMap: Record<string, 'success' | 'warning' | 'error'> = {
+    'pass': 'success',
+    'success': 'success',
+    'warning': 'warning',
+    'fail': 'error',
+    'error': 'error'
+  };
+  const iconType = iconTypeMap[issue.status];
+  const cleanedMessage = cleanDuplicateEmojis(translatedMessage, iconType);
   
   textContainer.textContent = cleanedMessage;
   
