@@ -3,7 +3,11 @@
     "target": "es6",
     "module": "commonjs",
     "jsx": "react-native",
-    "strict": true
+    "strict": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node"
   },
   "exclude": ["node_modules"]
 }

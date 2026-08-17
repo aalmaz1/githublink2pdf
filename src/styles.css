@@ -1,4 +1,94 @@
 /* ==========================================================================
+   ATS Checker Panel Styles
+   ========================================================================== */
+.ats-panel {
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ats-panel-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.ats-score {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--ui-text);
+  margin-bottom: 15px;
+}
+
+.ats-issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ats-panel-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--ui-bg);
+  border-radius: 6px;
+  border-left: 4px solid transparent;
+}
+
+.ats-panel-issue[data-status="pass"] {
+  border-left-color: #22c55e;
+}
+
+.ats-panel-issue[data-status="warning"] {
+  border-left-color: #f59e0b;
+}
+
+.ats-panel-issue[data-status="fail"] {
+  border-left-color: #ef4444;
+}
+
+.ats-panel-issue-icon {
+  flex-shrink: 0;
+  font-size: 1.2em;
+  line-height: 1;
+  width: 24px;
+  text-align: center;
+}
+
+.ats-panel-issue-text {
+  flex: 1;
+  color: var(--ui-text);
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+/* Language selector styles */
+.language-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.language-btn {
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  border-radius: 4px !important;
+}
+
+.language-btn.active {
+  background: var(--ui-accent) !important;
+  color: var(--ui-btn-text) !important;
+  border-color: var(--ui-accent) !important;
+}
+
+/* ==========================================================================
    Global Reset & Base
    ========================================================================== */
 *, *::before, *::after {
