@@ -2,6 +2,7 @@ import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
 import { printResume } from './print-utils';
 import { fetchGitHubResumeData } from './github-provider';
+import { initLanguage, setLanguage, getLanguage, t } from './i18n';
 
 let currentResumeData: ResumeData | null = null;
 let currentTextAlign: 'left' | 'center' | 'justify' = 'left';
@@ -97,6 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggleBtn = document.getElementById('theme-toggle');
   if (!container) return;
   
+  // Initialize i18n and set initial html lang attribute
+  initLanguage();
+  
   // Initial render
   updateUI(defaultData, container);
 
@@ -110,7 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.removeAttribute('data-theme');
     }
     if (themeToggleBtn) {
-      themeToggleBtn.textContent = isDarkTheme ? '☀️ Светлая' : '🌙 Темная';
+      // Use localized button text
+      themeToggleBtn.textContent = isDarkTheme 
+        ? t('ui.theme_light', '☀️ Light') 
+        : t('ui.theme_dark', '🌙 Dark');
     }
   });
 
@@ -151,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
   importBtn?.addEventListener('click', async () => {
     const input = githubInput.value.trim();
     if (!input) {
-      alert('Please enter a username');
+      alert(t('ui.error_enter_username', 'Please enter a username'));
       return;
     }
     
@@ -164,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateUI(data, container);
       
     } catch (e) {
-      alert('GitHub User not found or API limit reached');
+      alert(t('ui.error_github_not_found', 'GitHub User not found or API limit reached'));
     } finally {
       if (loader) loader.style.display = 'none';
       if (loadingOverlay) loadingOverlay.classList.add('hidden');

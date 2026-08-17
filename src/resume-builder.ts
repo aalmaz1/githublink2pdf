@@ -4,6 +4,7 @@
  * logic, specifically extending the 'Editorial Engine' concept.
  */
 import { ResumeData, TimeBoundedEntity, SkillCategory } from './types';
+import { t, translateSection } from './i18n';
 
 export function renderResume(data: ResumeData, container: HTMLElement): void {
   container.innerHTML = '';
@@ -18,19 +19,19 @@ export function renderResume(data: ResumeData, container: HTMLElement): void {
   header.appendChild(createLine('p', contacts));
   container.appendChild(header);
 
-  // 2. Sections
+  // 2. Sections with localized headers
   if (data.experience?.length) {
-    container.appendChild(renderSection('Experience', data.experience));
+    container.appendChild(renderSection(t('common.experience', 'Experience'), data.experience));
   }
 
   if (data.education?.length) {
-    container.appendChild(renderSection('Education', data.education));
+    container.appendChild(renderSection(t('common.education', 'Education'), data.education));
   }
 
   // 3. Skills Grid
   if (data.skills?.length) {
     const section = createBlock('section-block');
-    section.appendChild(createLine('h3', 'Skills'));
+    section.appendChild(createLine('h3', t('common.skills', 'Skills')));
     
     const skillsList = document.createElement('div');
     skillsList.className = 'skills-grid';
