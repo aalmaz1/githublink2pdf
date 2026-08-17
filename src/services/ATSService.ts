@@ -450,7 +450,7 @@ export class ATSService {
         if (foundCount >= 5) {
           issues.push({
             type: 'success',
-            message: `Strong keywords presence (${foundCount} technical keywords found)`,
+            message: `strong keywords presence (${foundCount} technical keywords found)`,
             category: 'keywords'
           });
           score = Math.max(score, 90);
