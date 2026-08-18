@@ -4,6 +4,7 @@ import { ExportService } from './services/ExportService';
 import { fetchGitHubResumeData, extractUsername } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { translations, Lang, defaultLang } from './translations';
+import { cleanDuplicateEmojis } from './i18n/index';
 import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
 import { DESIGNS, getRandomDesign, DesignTemplate } from './designs/design-templates';
@@ -499,7 +500,7 @@ function showATSResultPanel(result: ATSResult): void {
       ${result.issues.map(issue => `
         <div class="ats-panel-issue issue-${issue.type}">
           <span class="ats-panel-issue-icon">${getIssueIcon(issue.type)}</span>
-          <span class="ats-panel-issue-text">${issue.message}</span>
+          <span class="ats-panel-issue-text">${getIssueMessage(issue)}</span>
         </div>
       `).join('')}
     </div>
@@ -542,6 +543,19 @@ function getIssueIcon(type: string): string {
     case 'error': return '❌';
     default: return '';
   }
+}
+
+/**
+ * Get issue message text for display
+ * The status icon is already rendered in the dedicated .ats-panel-issue-icon span,
+ * so strip any leading status emoji from the message to avoid duplicate icons
+ */
+function getIssueMessage(issue: { type: string; message: string }): string {
+  const iconType =
+    issue.type === 'success' ? 'pass' :
+    issue.type === 'error' ? 'fail' :
+    issue.type === 'warning' ? 'warning' : undefined;
+  return cleanDuplicateEmojis(issue.message, iconType);
 }
 
 /**

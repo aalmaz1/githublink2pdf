@@ -1,6 +1,11 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  server: {
+    host: '0.0.0.0',
+    // Allow the sandbox preview proxy host so the live preview loads
+    allowedHosts: true
+  },
   build: {
     target: 'esnext',
     // Enable tree shaking and minification
