@@ -341,13 +341,13 @@ export class ATSService {
     }
 
     if (finalScore >= 85) {
-      issues.push({ type: 'success', message: '✅ Resume is ATS-friendly and optimized!', category: 'summary' });
+      issues.push({ type: 'success', message: 'Resume is ATS-friendly and optimized!', category: 'summary' });
     } else if (finalScore >= 70) {
-      issues.push({ type: 'warning', message: '⚠ Resume is good but can be improved', category: 'summary' });
+      issues.push({ type: 'warning', message: 'Resume is good but can be improved', category: 'summary' });
     } else if (finalScore >= 50) {
-      issues.push({ type: 'warning', message: '⚠ Resume needs improvement for ATS filters', category: 'summary' });
+      issues.push({ type: 'warning', message: 'Resume needs improvement for ATS filters', category: 'summary' });
     } else {
-      issues.push({ type: 'error', message: '❌ Resume will likely be rejected by ATS systems', category: 'summary' });
+      issues.push({ type: 'error', message: 'Resume will likely be rejected by ATS systems', category: 'summary' });
     }
 
     // Sort issues by priority: errors first, then warnings, then success, then info
@@ -395,17 +395,17 @@ export class ATSService {
     const hasContacts = !!(data.personal.email || data.personal.phone || data.personal.linkedin || data.personal.location || data.personal.name);
     if (hasContacts) {
       score += maxPerSection;
-      issues.push({ type: 'success', message: '✅ Contact section present', category: 'structure' });
+      issues.push({ type: 'success', message: 'Contact section present', category: 'structure' });
     } else {
-      issues.push({ type: 'error', message: '❌ No contact information section present', category: 'structure' });
+      issues.push({ type: 'error', message: 'No contact information section present', category: 'structure' });
     }
 
     const hasSummary = !!(data.personal.title && data.personal.title.trim().length > 0);
     if (hasSummary) {
       score += maxPerSection;
-      issues.push({ type: 'success', message: '✅ Summary/Title section filled', category: 'structure' });
+      issues.push({ type: 'success', message: 'Summary/Title section filled', category: 'structure' });
     } else {
-      issues.push({ type: 'error', message: '❌ Missing Summary section', category: 'structure' });
+      issues.push({ type: 'error', message: 'Missing Summary section', category: 'structure' });
     }
 
     const hasExperience = !!(data.experience && data.experience.length > 0);
@@ -417,30 +417,30 @@ export class ATSService {
       issues.push({
         type: 'success',
         message: successfulStudentExperience
-          ? '✅ Projects and education compensate for lack of formal experience'
-          : '✅ Experience section present',
+          ? 'Projects and education compensate for lack of formal experience'
+          : 'Experience section present',
         category: 'structure'
       });
     } else {
       if (!hasProjects) {
-        issues.push({ type: 'error', message: '❌ No projects found', category: 'structure' });
+        issues.push({ type: 'error', message: 'No projects found', category: 'structure' });
       } else {
-        issues.push({ type: 'error', message: '❌ Experience or project section is missing', category: 'structure' });
+        issues.push({ type: 'error', message: 'Experience or project section is missing', category: 'structure' });
       }
     }
 
     const hasSkills = !!(data.skills && data.skills.length > 0);
     if (hasSkills) {
       score += maxPerSection;
-      issues.push({ type: 'success', message: '✅ Skills section present', category: 'structure' });
+      issues.push({ type: 'success', message: 'Skills section present', category: 'structure' });
     } else {
-      issues.push({ type: 'error', message: '❌ Skills section is empty', category: 'structure' });
+      issues.push({ type: 'error', message: 'Skills section is empty', category: 'structure' });
     }
 
     const hasEducation = !!(data.education && data.education.length > 0);
     if (hasEducation) {
       score += maxPerSection;
-      issues.push({ type: 'success', message: '✅ Education section present', category: 'structure' });
+      issues.push({ type: 'success', message: 'Education section present', category: 'structure' });
     }
 
     return Math.min(100, score);
@@ -453,42 +453,42 @@ export class ATSService {
     if (data.personal.email && data.personal.email.trim().length > 0) {
       if (isValidEmail(data.personal.email)) {
         score += 30;
-        issues.push({ type: 'success', message: '✅ Email is valid', category: 'contacts' });
+        issues.push({ type: 'success', message: 'Email is valid', category: 'contacts' });
       } else {
-        issues.push({ type: 'error', message: '❌ Email is invalid', category: 'contacts' });
+        issues.push({ type: 'error', message: 'Email is invalid', category: 'contacts' });
       }
     } else {
-      issues.push({ type: 'error', message: '❌ Email is missing', category: 'contacts' });
+      issues.push({ type: 'error', message: 'Email is missing', category: 'contacts' });
     }
 
     if (data.personal.phone && data.personal.phone.trim().length > 0) {
       score += 20;
-      issues.push({ type: 'success', message: '✅ Phone is provided', category: 'contacts' });
+      issues.push({ type: 'success', message: 'Phone is provided', category: 'contacts' });
     } else {
-      issues.push({ type: 'error', message: '❌ Phone is missing', category: 'contacts' });
+      issues.push({ type: 'error', message: 'Phone is missing', category: 'contacts' });
     }
 
     if (data.personal.linkedin && data.personal.linkedin.trim().length > 0) {
       score += 15;
-      issues.push({ type: 'success', message: '✅ LinkedIn is provided', category: 'contacts' });
+      issues.push({ type: 'success', message: 'LinkedIn is provided', category: 'contacts' });
     } else {
-      issues.push({ type: 'error', message: '❌ Missing LinkedIn', category: 'contacts' });
+      issues.push({ type: 'error', message: 'Missing LinkedIn', category: 'contacts' });
     }
 
     if (data.personal.github && data.personal.github.trim().length > 0) {
       score += 15;
-      issues.push({ type: 'success', message: '✅ GitHub is provided', category: 'contacts' });
+      issues.push({ type: 'success', message: 'GitHub is provided', category: 'contacts' });
     }
 
     if (data.personal.location && data.personal.location.trim().length > 0) {
       score += 20;
-      issues.push({ type: 'success', message: '✅ Location is provided', category: 'contacts' });
+      issues.push({ type: 'success', message: 'Location is provided', category: 'contacts' });
     } else {
-      issues.push({ type: 'warning', message: '⚠ Location is missing (recommended)', category: 'contacts' });
+      issues.push({ type: 'warning', message: 'Location is missing (recommended)', category: 'contacts' });
     }
 
     if (contactMissing) {
-      issues.push({ type: 'error', message: '❌ Контактная информация отсутствует', category: 'contacts' });
+      issues.push({ type: 'error', message: 'Контактная информация отсутствует', category: 'contacts' });
       return 0;
     }
 
@@ -505,13 +505,13 @@ export class ATSService {
     if (this.jobDescription && this.jobDescription.trim().length > 0) {
       issues.push({
         type: 'success',
-        message: `✅ Found ${foundCount} keywords from the job description`,
+        message: `Found ${foundCount} keywords from the job description`,
         category: 'keywords'
       });
       if (keywordAnalysis.missingKeywords.length > 0 && keywordAnalysis.missingKeywords.length <= 5) {
         issues.push({
           type: 'warning',
-          message: `⚠ Add these keywords from job description: ${keywordAnalysis.missingKeywords.slice(0, 3).join(', ')}`,
+          message: `Add these keywords from job description: ${keywordAnalysis.missingKeywords.slice(0, 3).join(', ')}`,
           category: 'keywords'
         });
       }
@@ -520,21 +520,21 @@ export class ATSService {
         if (foundCount >= 3) {
           issues.push({
             type: 'success',
-            message: `✅ Strong non-technical keywords present (${foundCount} keywords found)`,
+            message: `Strong non-technical keywords present (${foundCount} keywords found)`,
             category: 'keywords'
           });
           score = Math.max(score, 80);
         } else if (foundCount >= 1) {
           issues.push({
             type: 'warning',
-            message: `⚠ Only ${foundCount} management keywords found. Add leadership, strategy, campaign or stakeholder terms`,
+            message: `Only ${foundCount} management keywords found. Add leadership, strategy, campaign or stakeholder terms`,
             category: 'keywords'
           });
           score = Math.max(score, 50);
         } else {
           issues.push({
             type: 'warning',
-            message: '⚠ No management keywords found. Add leadership, strategy, budget or campaign terms',
+            message: 'No management keywords found. Add leadership, strategy, budget or campaign terms',
             category: 'keywords'
           });
           score = Math.min(score, 40);
@@ -543,21 +543,21 @@ export class ATSService {
         if (foundCount >= 5) {
           issues.push({
             type: 'success',
-            message: `✅ Strong design keyword coverage (${foundCount} keywords found)`,
+            message: `Strong design keyword coverage (${foundCount} keywords found)`,
             category: 'keywords'
           });
           score = Math.max(score, 85);
         } else if (foundCount >= 2) {
           issues.push({
             type: 'success',
-            message: `✅ Good design keyword presence (${foundCount} keywords)`,
+            message: `Good design keyword presence (${foundCount} keywords)`,
             category: 'keywords'
           });
           score = Math.max(score, 70);
         } else {
           issues.push({
             type: 'warning',
-            message: '⚠ Add UX/UI and product design keywords like Figma, prototyping, wireframing, user research',
+            message: 'Add UX/UI and product design keywords like Figma, prototyping, wireframing, user research',
             category: 'keywords'
           });
           score = Math.min(score, 50);
@@ -566,27 +566,27 @@ export class ATSService {
         if (foundCount >= 5) {
           issues.push({
             type: 'success',
-            message: `✅ strong keywords presence (${foundCount} technical keywords found)`,
+            message: `strong keywords presence (${foundCount} technical keywords found)`,
             category: 'keywords'
           });
           score = Math.max(score, 90);
         } else if (foundCount >= 3) {
           issues.push({
             type: 'success',
-            message: `✅ Good technical keywords presence (${foundCount} keywords)`,
+            message: `Good technical keywords presence (${foundCount} keywords)`,
             category: 'keywords'
           });
           score = Math.max(score, 70);
         } else if (foundCount >= 1) {
           issues.push({
             type: 'warning',
-            message: `⚠ Only ${foundCount} technical keywords found. Add more technical keywords to improve ATS score`,
+            message: `Only ${foundCount} technical keywords found. Add more technical keywords to improve ATS score`,
             category: 'keywords'
           });
         } else {
           issues.push({
             type: 'error',
-            message: '❌ No technical keywords found. Add more technical keywords to your resume',
+            message: 'No technical keywords found. Add more technical keywords to your resume',
             category: 'keywords'
           });
           score = Math.min(score, 30);
@@ -595,7 +595,7 @@ export class ATSService {
         if (foundCount < 3) {
           issues.push({
             type: 'warning',
-            message: '💡 Add more technical keywords related to your field',
+            message: 'Add more technical keywords related to your field',
             category: 'keywords'
           });
         }
@@ -614,13 +614,13 @@ export class ATSService {
       score -= 15;
       issues.push({
         type: 'warning',
-        message: '⚠ Use action verbs (developed, created, implemented) in experience descriptions',
+        message: 'Use action verbs (developed, created, implemented) in experience descriptions',
         category: 'format'
       });
     } else {
       issues.push({
         type: 'success',
-        message: '✅ Action verbs used in experience descriptions',
+        message: 'Action verbs used in experience descriptions',
         category: 'format'
       });
     }
@@ -631,21 +631,21 @@ export class ATSService {
       if (summaryWordCount >= 3 && summaryWordCount <= 50) {
         issues.push({
           type: 'success',
-          message: '✅ Summary length is optimal',
+          message: 'Summary length is optimal',
           category: 'format'
         });
       } else if (summaryWordCount < 3) {
         score -= 10;
         issues.push({
           type: 'warning',
-          message: '⚠ Summary is too short',
+          message: 'Summary is too short',
           category: 'format'
         });
       } else {
         score -= 5;
         issues.push({
           type: 'warning',
-          message: '⚠ Summary is too long. Recommended 3-50 words',
+          message: 'Summary is too long. Recommended 3-50 words',
           category: 'format'
         });
       }
@@ -653,7 +653,7 @@ export class ATSService {
       score -= 15;
       issues.push({
         type: 'warning',
-        message: '⚠ Summary is missing or empty',
+        message: 'Summary is missing or empty',
         category: 'format'
       });
     }
@@ -669,20 +669,20 @@ export class ATSService {
     if (totalDesc >= 2 && quantCount >= Math.ceil(totalDesc / 2)) {
       issues.push({
         type: 'success',
-        message: '✅ Good use of quantifiable achievements (' + quantCount + ' items with numbers/metrics)',
+        message: 'Good use of quantifiable achievements (' + quantCount + ' items with numbers/metrics)',
         category: 'format'
       });
     } else if (quantCount > 0) {
       issues.push({
         type: 'warning',
-        message: '⚠ Only ' + quantCount + ' quantifiable achievements found. Add metrics (numbers, %, $) to strengthen impact',
+        message: 'Only ' + quantCount + ' quantifiable achievements found. Add metrics (numbers, %, $) to strengthen impact',
         category: 'format'
       });
       if (score >= 70) score -= 10;
     } else if (totalDesc > 0) {
       issues.push({
         type: 'warning',
-        message: '⚠ No quantifiable achievements found. Use numbers, percentages, and metrics to show impact',
+        message: 'No quantifiable achievements found. Use numbers, percentages, and metrics to show impact',
         category: 'format'
       });
       score -= 15;
@@ -693,20 +693,20 @@ export class ATSService {
     if (wordCount >= 200 && wordCount <= 800) {
       issues.push({
         type: 'success',
-        message: '✅ Good resume length (' + wordCount + ' words)',
+        message: 'Good resume length (' + wordCount + ' words)',
         category: 'format'
       });
     } else if (wordCount < 200) {
       issues.push({
         type: 'warning',
-        message: '⚠ Resume is too short (' + wordCount + ' words). Aim for 200-800 words',
+        message: 'Resume is too short (' + wordCount + ' words). Aim for 200-800 words',
         category: 'format'
       });
       if (score >= 60) score -= 10;
     } else {
       issues.push({
         type: 'warning',
-        message: '⚠ Resume is long (' + wordCount + ' words). Aim for 200-800 words to keep ATS parsing efficient',
+        message: 'Resume is long (' + wordCount + ' words). Aim for 200-800 words to keep ATS parsing efficient',
         category: 'format'
       });
       if (score >= 60) score -= 5;
@@ -839,7 +839,7 @@ export class ATSService {
         if (hasProjects && data.education.length > 0) {
           issues.push({
             type: 'success',
-            message: '✅ Student resume includes project evidence',
+            message: 'Student resume includes project evidence',
             category: 'experience'
           });
           return 100;
@@ -847,7 +847,7 @@ export class ATSService {
 
         issues.push({
           type: 'error',
-          message: '❌ Student resume is missing both experience and project evidence',
+          message: 'Student resume is missing both experience and project evidence',
           category: 'experience'
         });
         return 0;
@@ -855,7 +855,7 @@ export class ATSService {
 
       issues.push({
         type: 'error',
-        message: '❌ Experience section is empty',
+        message: 'Experience section is empty',
         category: 'experience'
       });
       return 0;
@@ -867,14 +867,14 @@ export class ATSService {
       score = 60;
       issues.push({
         type: 'success',
-        message: '✅ Sufficient work experience (3+ positions)',
+        message: 'Sufficient work experience (3+ positions)',
         category: 'experience'
       });
     } else {
       score = 40;
       issues.push({
         type: 'success',
-        message: '✅ Has ' + data.experience.length + ' position' + (data.experience.length > 1 ? 's' : ''),
+        message: 'Has ' + data.experience.length + ' position' + (data.experience.length > 1 ? 's' : ''),
         category: 'experience'
       });
     }
@@ -902,7 +902,7 @@ export class ATSService {
     if (totalDescriptions === 0) {
       issues.push({
         type: 'error',
-        message: '❌ Experience entries have no descriptions',
+        message: 'Experience entries have no descriptions',
         category: 'experience'
       });
       return Math.max(0, score - 30);
@@ -915,14 +915,14 @@ export class ATSService {
       score += 20;
       issues.push({
         type: 'success',
-        message: '✅ Most descriptions start with strong action verbs',
+        message: 'Most descriptions start with strong action verbs',
         category: 'experience'
       });
     } else if (withActionVerbs > 0) {
       score += 10;
       issues.push({
         type: 'warning',
-        message: '⚠ Only ' + withActionVerbs + '/' + totalDescriptions + ' descriptions use action verbs - aim for all',
+        message: 'Only ' + withActionVerbs + '/' + totalDescriptions + ' descriptions use action verbs - aim for all',
         category: 'experience'
       });
     }
@@ -932,20 +932,20 @@ export class ATSService {
       score += 20;
       issues.push({
         type: 'success',
-        message: '✅ ' + withQuantified + ' description' + (withQuantified > 1 ? 's' : '') + ' include quantifiable achievements',
+        message: withQuantified + ' description' + (withQuantified > 1 ? 's' : '') + ' include quantifiable achievements',
         category: 'experience'
       });
     } else if (withQuantified > 0) {
       score += 10;
       issues.push({
         type: 'warning',
-        message: '⚠ Only ' + withQuantified + '/' + totalDescriptions + ' descriptions have metrics. Add numbers to show impact',
+        message: 'Only ' + withQuantified + '/' + totalDescriptions + ' descriptions have metrics. Add numbers to show impact',
         category: 'experience'
       });
     } else if (totalDescriptions > 0) {
       issues.push({
         type: 'warning',
-        message: '⚠ No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact',
+        message: 'No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact',
         category: 'experience'
       });
     }
@@ -955,21 +955,21 @@ export class ATSService {
       score += 10;
       issues.push({
         type: 'success',
-        message: '✅ Optimal description length (avg ' + Math.round(avgWordsPerDesc) + ' words per bullet)',
+        message: 'Optimal description length (avg ' + Math.round(avgWordsPerDesc) + ' words per bullet)',
         category: 'experience'
       });
     } else if (avgWordsPerDesc < 8) {
       score -= 5;
       issues.push({
         type: 'warning',
-        message: '⚠ Descriptions too short (avg ' + Math.round(avgWordsPerDesc) + ' words). Add more detail',
+        message: 'Descriptions too short (avg ' + Math.round(avgWordsPerDesc) + ' words). Add more detail',
         category: 'experience'
       });
     } else if (avgWordsPerDesc > 40) {
       score -= 5;
       issues.push({
         type: 'warning',
-        message: '⚠ Descriptions too verbose (avg ' + Math.round(avgWordsPerDesc) + ' words). Keep concise',
+        message: 'Descriptions too verbose (avg ' + Math.round(avgWordsPerDesc) + ' words). Keep concise',
         category: 'experience'
       });
     }
@@ -981,7 +981,7 @@ export class ATSService {
     if (data.education && data.education.length > 0) {
       issues.push({
         type: 'success',
-        message: '✅ Education section is present',
+        message: 'Education section is present',
         category: 'education'
       });
       return 100;
@@ -990,7 +990,7 @@ export class ATSService {
     if (profile === 'student') {
       issues.push({
         type: 'error',
-        message: '❌ Student profile should include education information',
+        message: 'Student profile should include education information',
         category: 'education'
       });
       return 0;
@@ -998,7 +998,7 @@ export class ATSService {
 
     issues.push({
       type: 'warning',
-      message: '⚠ Education section is missing. Add relevant degrees or certifications',
+      message: 'Education section is missing. Add relevant degrees or certifications',
       category: 'education'
     });
     return 50;
