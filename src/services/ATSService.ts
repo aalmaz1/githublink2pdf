@@ -5,7 +5,9 @@ import {
   ACTION_VERBS,
   MANAGEMENT_KEYWORDS,
   DESIGN_KEYWORDS,
-  EXTENDED_TECH_KEYWORDS
+  EXTENDED_TECH_KEYWORDS,
+  SYNONYM_MAP,
+  QUANTIFIABLE_PATTERNS
 } from '../config/ats-keywords';
 
 // Required sections for structure check
@@ -124,13 +126,42 @@ function collectResumeText(data: ResumeData): string {
   return parts.join(' ');
 }
 
+/**
+ * Expand a list of keywords by including their synonyms/aliases.
+ * This allows matching "JS" when the keyword is "JavaScript", and vice versa.
+ */
+function expandKeywords(keywords: string[]): Set<string> {
+  const expanded = new Set(keywords.map(k => k.toLowerCase()));
+  for (const keyword of keywords) {
+    const lower = keyword.toLowerCase();
+    const aliases = SYNONYM_MAP[lower];
+    if (aliases) {
+      for (const alias of aliases) {
+        expanded.add(alias);
+      }
+    }
+  }
+  // Reverse: if any alias appears in a synonym list, include its canonical
+  for (const keyword of keywords) {
+    const lower = keyword.toLowerCase();
+    for (const [canonical, aliasList] of Object.entries(SYNONYM_MAP)) {
+      if (aliasList.includes(lower)) {
+        expanded.add(canonical);
+      }
+    }
+  }
+  return expanded;
+}
+
 function calculateKeywordMatch(resumeText: string, jobDescription: string | undefined, keywords: string[]): {
   foundKeywords: string[];
   missingKeywords: string[];
   matchPercentage: number;
 } {
   const lowerResume = resumeText.toLowerCase();
-  const lowerKeywords = keywords.map(k => k.toLowerCase());
+  // Expand keywords with synonyms/aliases for smarter matching
+  const expandedKeywords = expandKeywords(keywords);
+  const lowerKeywords = Array.from(expandedKeywords);
 
   if (jobDescription && jobDescription.trim().length > 0) {
     const lowerJob = jobDescription.toLowerCase();
@@ -181,6 +212,89 @@ function getKeywordList(profile: ResumeProfile): string[] {
     default:
       return EXTENDED_TECH_KEYWORDS;
   }
+}
+
+/**
+ * Count descriptions that contain quantifiable achievements (numbers, %, $, etc.)
+ */
+function countQuantifiableAchievements(descriptions: string[]): number {
+  if (!descriptions || descriptions.length === 0) return 0;
+  let count = 0;
+  for (const desc of descriptions) {
+    for (const pattern of QUANTIFIABLE_PATTERNS) {
+      if (pattern.test(desc)) {
+        count++;
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Try to parse a date string like "2020 - Present", "01/2020", or "Summer 2022".
+ */
+function parsePeriod(period: string): { year: number | null; month: number | null } {
+  const lower = period.trim().toLowerCase();
+  const yearMatch = lower.match(/(\d{4})/);
+  const monthNames: Record<string, number> = {
+    jan: 1, january: 1,
+    feb: 2, february: 2,
+    mar: 3, march: 3,
+    apr: 4, april: 4,
+    may: 5,
+    jun: 6, june: 6,
+    jul: 7, july: 7,
+    aug: 8, august: 8,
+    sep: 9, september: 9,
+    oct: 10, october: 10,
+    nov: 11, november: 11,
+    dec: 12, december: 12
+  };
+  let month: number | null = null;
+  for (const [name, num] of Object.entries(monthNames)) {
+    if (lower.startsWith(name) || lower.includes(' ' + name + ' ') || lower.includes('-' + name)) {
+      month = num;
+      break;
+    }
+  }
+  const numericMonthMatch = lower.match(/^(\d{1,2})\//);
+  if (numericMonthMatch && !month) {
+    const m = parseInt(numericMonthMatch[1], 10);
+    if (m >= 1 && m <= 12) month = m;
+  }
+  return { year: yearMatch ? parseInt(yearMatch[1], 10) : null, month };
+}
+
+/**
+ * Check if a period string indicates "Present" or "Current"
+ */
+function isPresent(period: string): boolean {
+  return /(present|current|now|ongoing)/i.test(period);
+}
+
+/**
+ * Parse start and end from a period string like "2020 - Present" or "01/2020 - 03/2022".
+ */
+function parsePeriodRange(period: string): {
+  start: { year: number | null; month: number | null };
+  end: { year: number | null; month: number | null };
+  isCurrent: boolean;
+} {
+  const parts = period.split(/[-\u2013\u2014to]+/).map(p => p.trim());
+  const start = parts[0] ? parsePeriod(parts[0]) : { year: null, month: null };
+  const endPart = parts.length > 1 ? parts[1] : '';
+  const isCurrent = isPresent(endPart) || !endPart;
+  const end = isCurrent ? { year: null, month: null } : parsePeriod(endPart);
+  return { start, end, isCurrent };
+}
+
+/**
+ * Sort issues: errors first, then warnings, then success, then info.
+ */
+function sortIssuesByPriority(issues: ATSIssue[]): ATSIssue[] {
+  const priority: Record<string, number> = { error: 0, warning: 1, success: 2, info: 3 };
+  return [...issues].sort((a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99));
 }
 
 export class ATSService {
@@ -236,7 +350,9 @@ export class ATSService {
       issues.push({ type: 'error', message: '❌ Resume will likely be rejected by ATS systems', category: 'summary' });
     }
 
-    return { score: finalScore, issues, breakdown };
+    // Sort issues by priority: errors first, then warnings, then success, then info
+    const sortedIssues = sortIssuesByPriority(issues);
+    return { score: finalScore, issues: sortedIssues, breakdown };
   }
 
   private detectResumeProfile(data: ResumeData): ResumeProfile {
@@ -492,6 +608,8 @@ export class ATSService {
   private checkFormat(data: ResumeData, issues: ATSIssue[]): number {
     let score = 100;
     const fullText = collectResumeText(data);
+
+    // --- Action verbs ---
     if (!hasActionVerbs(fullText)) {
       score -= 15;
       issues.push({
@@ -507,6 +625,7 @@ export class ATSService {
       });
     }
 
+    // --- Summary length ---
     const summaryWordCount = countWords(data.personal.title || '');
     if (summaryWordCount > 0) {
       if (summaryWordCount >= 3 && summaryWordCount <= 50) {
@@ -539,16 +658,175 @@ export class ATSService {
       });
     }
 
+    // --- Quantifiable achievements ---
+    const allDescriptions = [
+      ...(data.experience || []).flatMap(e => e.description || []),
+      ...(data.education || []).flatMap(e => e.description || [])
+    ];
+    const quantCount = countQuantifiableAchievements(allDescriptions);
+    const totalDesc = allDescriptions.length;
+
+    if (totalDesc >= 2 && quantCount >= Math.ceil(totalDesc / 2)) {
+      issues.push({
+        type: 'success',
+        message: '✅ Good use of quantifiable achievements (' + quantCount + ' items with numbers/metrics)',
+        category: 'format'
+      });
+    } else if (quantCount > 0) {
+      issues.push({
+        type: 'warning',
+        message: '⚠ Only ' + quantCount + ' quantifiable achievements found. Add metrics (numbers, %, $) to strengthen impact',
+        category: 'format'
+      });
+      if (score >= 70) score -= 10;
+    } else if (totalDesc > 0) {
+      issues.push({
+        type: 'warning',
+        message: '⚠ No quantifiable achievements found. Use numbers, percentages, and metrics to show impact',
+        category: 'format'
+      });
+      score -= 15;
+    }
+
+    // --- Total content volume ---
+    const wordCount = countWords(fullText);
+    if (wordCount >= 200 && wordCount <= 800) {
+      issues.push({
+        type: 'success',
+        message: '✅ Good resume length (' + wordCount + ' words)',
+        category: 'format'
+      });
+    } else if (wordCount < 200) {
+      issues.push({
+        type: 'warning',
+        message: '⚠ Resume is too short (' + wordCount + ' words). Aim for 200-800 words',
+        category: 'format'
+      });
+      if (score >= 60) score -= 10;
+    } else {
+      issues.push({
+        type: 'warning',
+        message: '⚠ Resume is long (' + wordCount + ' words). Aim for 200-800 words to keep ATS parsing efficient',
+        category: 'format'
+      });
+      if (score >= 60) score -= 5;
+    }
+
     return Math.max(0, Math.min(100, score));
   }
 
   private checkDates(data: ResumeData, issues: ATSIssue[]): number {
+    const allEntities = [
+      ...(data.experience || []),
+      ...(data.education || [])
+    ];
+    const totalWithDates = allEntities.filter(e => e.period && e.period.trim().length > 0).length;
+    const totalMissing = allEntities.length - totalWithDates;
+
+    if (allEntities.length === 0) {
+      issues.push({ type: 'info', message: 'No date-based entries to validate', category: 'dates' });
+      return 100;
+    }
+
     let score = 100;
-    issues.push({
-      type: 'success',
-      message: '✅ Date formats are correct, no significant gaps',
-      category: 'dates'
-    });
+
+    // --- All entries should have dates ---
+    if (totalMissing > 0) {
+      score -= totalMissing * 15;
+      issues.push({
+        type: 'error',
+        message: 'Missing date period on ' + totalMissing + ' entr' + (totalMissing > 1 ? 'ies' : 'y'),
+        category: 'dates'
+      });
+    }
+
+    if (totalWithDates < 2) {
+      if (score < 100) return Math.max(0, score);
+      issues.push({ type: 'success', message: 'Dates present in entries', category: 'dates' });
+      return 100;
+    }
+
+    // --- Parse and check chronological order ---
+    const parsed: Array<{ startYear: number | null; endYear: number | null; isCurrent: boolean; period: string }> = [];
+    for (const entity of allEntities) {
+      if (!entity.period || !entity.period.trim()) continue;
+      const { start, end, isCurrent } = parsePeriodRange(entity.period);
+      parsed.push({ startYear: start.year, endYear: end.year, isCurrent, period: entity.period });
+    }
+
+    // Sort by start year descending (most recent first)
+    const sorted = [...parsed].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
+
+    // Check for inconsistent format patterns
+    const formats = new Set<string>();
+    for (const p of parsed) {
+      const fmt = p.period.match(/\d{4}/g)?.length ?? 0;
+      const hasMonth = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*/i.test(p.period) || /^\d{1,2}\//.test(p.period);
+      formats.add(fmt === 2 ? 'range' : fmt === 1 ? (hasMonth ? 'month-year' : 'year-only') : 'other');
+    }
+    if (formats.size > 1) {
+      score -= 15;
+      issues.push({
+        type: 'warning',
+        message: 'Inconsistent date formats detected. Use consistent format (e.g. "Jan 2020 – Present")',
+        category: 'dates'
+      });
+    }
+
+    // Check for chronological gaps
+    let gapIssues = 0;
+    for (let i =0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+      if (current.endYear === null || next.startYear === null) continue;
+      const gap = next.startYear - current.endYear;
+      if (gap > 1) {
+        gapIssues++;
+        if (gapIssues <= 2) {
+          issues.push({
+            type: 'warning',
+            message: 'Potential employment gap of ' + gap + ' year' + (gap > 1 ? 's' : '') + ' between periods',
+            category: 'dates'
+          });
+        }
+        score -= 10;
+      }
+    }
+
+    if (gapIssues > 2) {
+      issues.push({
+        type: 'info',
+        message: gapIssues + ' gap' + (gapIssues > 1 ? 's' : '') + ' detected; consider explaining in resume',
+        category: 'dates'
+      });
+    }
+
+    // Check for chronological order violations
+    let outOfOrder = false;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].startYear !== null && sorted[i + 1].startYear !== null &&
+          sorted[i].startYear! < sorted[i + 1].startYear!) {
+        outOfOrder = true;
+        break;
+      }
+    }
+    if (outOfOrder) {
+      score -= 20;
+      issues.push({
+        type: 'error',
+        message: 'Entries not in reverse chronological order. Start with most recent',
+        category: 'dates'
+      });
+    }
+
+    if (score >= 80 && totalMissing === 0 && !outOfOrder && gapIssues === 0) {
+      issues.push({
+        type: 'success',
+        message: 'Dates are well-formatted and chronological',
+        category: 'dates'
+      });
+    }
+
     return Math.max(0, Math.min(100, score));
   }
 
@@ -583,21 +861,120 @@ export class ATSService {
       return 0;
     }
 
+    // Start with base score from count
+    let score = 0;
     if (data.experience.length >= 3) {
+      score = 60;
       issues.push({
         type: 'success',
         message: '✅ Sufficient work experience (3+ positions)',
         category: 'experience'
       });
-      return 100;
+    } else {
+      score = 40;
+      issues.push({
+        type: 'success',
+        message: '✅ Has ' + data.experience.length + ' position' + (data.experience.length > 1 ? 's' : ''),
+        category: 'experience'
+      });
     }
 
-    issues.push({
-      type: 'success',
-      message: '✅ Has work experience',
-      category: 'experience'
-    });
-    return 70;
+    // --- Description quality check ---
+    let totalDescriptions = 0;
+    let withActionVerbs = 0;
+    let withQuantified = 0;
+    let totalWords = 0;
+
+    for (const exp of data.experience) {
+      const descs = exp.description || [];
+      totalDescriptions += descs.length;
+      for (const desc of descs) {
+        totalWords += countWords(desc);
+        if (ACTION_VERBS.some(v => desc.toLowerCase().includes(v))) {
+          withActionVerbs++;
+        }
+        if (QUANTIFIABLE_PATTERNS.some(p => p.test(desc))) {
+          withQuantified++;
+        }
+      }
+    }
+
+    if (totalDescriptions === 0) {
+      issues.push({
+        type: 'error',
+        message: '❌ Experience entries have no descriptions',
+        category: 'experience'
+      });
+      return Math.max(0, score - 30);
+    }
+
+    const avgWordsPerDesc = totalWords / Math.max(totalDescriptions, 1);
+
+    // Action verb coverage
+    if (totalDescriptions > 0 && withActionVerbs >= totalDescriptions * 0.5) {
+      score += 20;
+      issues.push({
+        type: 'success',
+        message: '✅ Most descriptions start with strong action verbs',
+        category: 'experience'
+      });
+    } else if (withActionVerbs > 0) {
+      score += 10;
+      issues.push({
+        type: 'warning',
+        message: '⚠ Only ' + withActionVerbs + '/' + totalDescriptions + ' descriptions use action verbs - aim for all',
+        category: 'experience'
+      });
+    }
+
+    // Quantified achievements
+    if (totalDescriptions > 0 && withQuantified >= Math.ceil(totalDescriptions / 2)) {
+      score += 20;
+      issues.push({
+        type: 'success',
+        message: '✅ ' + withQuantified + ' description' + (withQuantified > 1 ? 's' : '') + ' include quantifiable achievements',
+        category: 'experience'
+      });
+    } else if (withQuantified > 0) {
+      score += 10;
+      issues.push({
+        type: 'warning',
+        message: '⚠ Only ' + withQuantified + '/' + totalDescriptions + ' descriptions have metrics. Add numbers to show impact',
+        category: 'experience'
+      });
+    } else if (totalDescriptions > 0) {
+      issues.push({
+        type: 'warning',
+        message: '⚠ No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact',
+        category: 'experience'
+      });
+    }
+
+    // Description length quality
+    if (avgWordsPerDesc >= 12 && avgWordsPerDesc <= 30) {
+      score += 10;
+      issues.push({
+        type: 'success',
+        message: '✅ Optimal description length (avg ' + Math.round(avgWordsPerDesc) + ' words per bullet)',
+        category: 'experience'
+      });
+    } else if (avgWordsPerDesc < 8) {
+      score -= 5;
+      issues.push({
+        type: 'warning',
+        message: '⚠ Descriptions too short (avg ' + Math.round(avgWordsPerDesc) + ' words). Add more detail',
+        category: 'experience'
+      });
+    } else if (avgWordsPerDesc > 40) {
+      score -= 5;
+      issues.push({
+        type: 'warning',
+        message: '⚠ Descriptions too verbose (avg ' + Math.round(avgWordsPerDesc) + ' words). Keep concise',
+        category: 'experience'
+      });
+    }
+
+    return Math.max(0, Math.min(100, score));
   }
 
   private checkEducation(data: ResumeData, issues: ATSIssue[], profile: ResumeProfile): number {
