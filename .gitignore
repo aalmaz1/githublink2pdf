@@ -1,1 +1,24 @@
-Nothing needs to be added to .gitignore since only a documentation file (PROJECT_DOCUMENTATION.md) was added, which is a source/config file and should not be ignored.
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test coverage
+coverage/
+
+# Generated reports
+reports/
+
+# Logs and local env
+*.log
+*.local
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
