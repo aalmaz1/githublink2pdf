@@ -31,21 +31,7 @@ export const translations = {
     savedToast: '✅ Changes saved automatically',
     invalidUsername: '⚠️ Please enter a valid GitHub username',
     exportSuccess: '✅ PDF exported successfully!',
-    jsonSaved: '✅ JSON file downloaded',
-    // Onboarding translations
-    onboarding: {
-      step1Title: 'Welcome to Resume Builder',
-      step1Desc: 'Enter your GitHub username or profile URL to automatically generate a professional resume from your projects.',
-      step2Title: 'Import Your Data',
-      step2Desc: 'Click "Import" to fetch your GitHub profile and repositories. Our AI will create professional descriptions.',
-      step3Title: 'Choose a Design',
-      step3Desc: 'Select from 30+ professional designs or click "Random" to discover a style that fits your personality.',
-      step4Title: 'Export & Share',
-      step4Desc: 'Check your ATS score to optimize for hiring systems, then export as PDF to share with employers.'
-    },
-    // ATS explanation
-    atsTooltip: 'ATS (Applicant Tracking System) — software that filters resumes before HR review. Our checker evaluates how well your resume matches ATS requirements.',
-    atsPanelTitle: 'What is ATS Score?'
+    jsonSaved: '✅ JSON file downloaded'
   },
   ru: {
     appTitle: 'Конструктор Резюме',
@@ -77,21 +63,7 @@ export const translations = {
     savedToast: '✅ Изменения сохранены автоматически',
     invalidUsername: '⚠️ Введите корректное имя пользователя GitHub',
     exportSuccess: '✅ PDF успешно экспортирован!',
-    jsonSaved: '✅ JSON файл загружен',
-    // Onboarding translations
-    onboarding: {
-      step1Title: 'Добро пожаловать в Resume Builder',
-      step1Desc: 'Введите имя пользователя GitHub или ссылку на профиль, чтобы автоматически создать профессиональное резюме на основе ваших проектов.',
-      step2Title: 'Импортируйте данные',
-      step2Desc: 'Нажмите "Import", чтобы загрузить ваш профиль GitHub и репозитории. Наш ИИ создаст профессиональные описания.',
-      step3Title: 'Выберите дизайн',
-      step3Desc: 'Выберите один из 30+ профессиональных дизайнов или нажмите "Random" для случайного выбора.',
-      step4Title: 'Экспорт и публикация',
-      step4Desc: 'Проверьте ATS-оценку для оптимизации под системы найма, затем экспортируйте в PDF для отправки работодателям.'
-    },
-    // ATS explanation
-    atsTooltip: 'ATS (Applicant Tracking System) — программа, которая фильтрует резюме перед просмотром HR. Наш чекер оценивает, насколько ваше резюме соответствует требованиям ATS.',
-    atsPanelTitle: 'Что такое ATS-оценка?'
+    jsonSaved: '✅ JSON файл загружен'
   },
   ko: {
     appTitle: '이력서 빌더',
@@ -123,21 +95,7 @@ export const translations = {
     savedToast: '✅ 변경사항이 자동으로 저장되었습니다',
     invalidUsername: '⚠️ 유효한 GitHub 사용자명을 입력하세요',
     exportSuccess: '✅ PDF 가 성공적으로 내보내졌습니다!',
-    jsonSaved: '✅ JSON 파일이 다운로드되었습니다',
-    // Onboarding translations
-    onboarding: {
-      step1Title: 'Resume Builder 에 오신 것을 환영합니다',
-      step1Desc: 'GitHub 사용자명 또는 프로필 URL 을 입력하여 프로젝트에서 자동으로 전문 이력서를 생성하세요.',
-      step2Title: '데이터 가져오기',
-      step2Desc: '"Import"를 클릭하여 GitHub 프로필과 저장소를 가져오세요. AI 가 전문적인 설명을 생성합니다.',
-      step3Title: '디자인 선택',
-      step3Desc: '30 개 이상의 전문 디자인 중 하나를 선택하거나 "Random"을 클릭하여 개성에 맞는 스타일을 찾아보세요.',
-      step4Title: '내보내기 및 공유',
-      step4Desc: 'ATS 점수를 확인하여 채용 시스템을 최적화한 후 PDF 로 내보내어 고용주와 공유하세요.'
-    },
-    // ATS explanation
-    atsTooltip: 'ATS (Applicant Tracking System) — HR 검토 전 이력서를 필터링하는 소프트웨어입니다. 우리 체커는 이력서가 ATS 요구사항과 얼마나 일치하는지 평가합니다.',
-    atsPanelTitle: 'ATS 점수란 무엇인가요?'
+    jsonSaved: '✅ JSON 파일이 다운로드되었습니다'
   }
 };
 

@@ -3,8 +3,8 @@
  * This module implements the Layout Primitive pattern
  * logic, specifically extending the 'Editorial Engine' concept.
  */
-import { ResumeData, TimeBoundedEntity, SkillCategory } from './types';
-import { t, translateSection } from './i18n';
+import { ResumeData, TimeBoundedEntity } from './types';
+import { t } from './i18n';
 
 export function renderResume(data: ResumeData, container: HTMLElement): void {
   container.innerHTML = '';
