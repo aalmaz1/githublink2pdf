@@ -1,78 +1,94 @@
 # Pretext Resume Builder
-### Portfolio Automation Tool (웹프로그래밍 기말 프로젝트)
 
-***
+A client-side resume builder that turns a GitHub profile into an editable, ATS-aware, print-ready resume. Built as a Vite single-page app in TypeScript — no backend, no framework.
 
-## 📄 프로젝트 소개
+## Features
 
-Pretext Resume Builder는 포트폴리오 자동 만드는 웹 서비스입니다.  
-이 프로젝트는 Pretext 타이포그래피 엔진 개념 사용해서 만들었습니다.
+- **GitHub import** — enter a username or profile URL; the app loads profile data, top repositories, languages, and topics, then drafts experience bullets from that metadata
+- **30 resume designs** — professional, creative, minimal, tech, business, elegant, and bold templates, plus a random-design button
+- **Inline editing** — click any text on the preview to change it (`contenteditable`)
+- **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education, with a side panel of recommendations
+- **Export** — A4 PDF via html2pdf.js, or download the resume as JSON
+- **UI** — English / Russian / Korean, light or dark chrome, text alignment, preferences stored in `localStorage`
+- **Demo profile** — a generated sample resume loads immediately so you can try designs without an import
 
-개발자는 GitHub 데이터 가져와서 쉽게 이력서 만들 수 있습니다.  
-결과는 바로 인쇄 가능하고, 깔끔한 디자인 제공합니다.
+A network connection is required only for GitHub import (GitHub REST API). Everything else runs in the browser.
 
-***
+## Tech stack
 
-## 🛠 기술 스택
+| Layer | Choice |
+| --- | --- |
+| Language | TypeScript |
+| Bundler / dev server | Vite |
+| Styling | CSS custom properties (one class per design) |
+| Tests | Vitest + jsdom |
+| PDF | html2pdf.js / html2canvas |
+| Data | GitHub REST API, `localStorage` |
 
-- TypeScript / JavaScript
-- CSS3 (변수 사용)
-- GitHub REST API
-- LocalStorage
-- Vite (SPA 구조)
+## Getting started
 
-***
+Node.js 20+ is recommended.
 
-## ✨ 주요 기능
+```bash
+git clone https://github.com/aalmaz1/resume_builder.git
+cd resume_builder
+npm install
+npm run dev
+```
 
-1. GitHub 데이터 가져오기
-   - 사용자 정보, 인기 repo 자동 가져옵니다
-   - 사용 언어 기반으로 기술 스택 생성합니다
+Open the URL Vite prints (usually `http://localhost:5173`). Do not open `index.html` as a file — the app is a Vite module graph.
 
-2. 테마 변경 기능
-   - Classic / Modern / Minimal 3가지 테마
-   - 선택한 테마 저장됩니다
+### npm scripts
 
-3. PDF 출력 기능
-   - A4 사이즈 맞게 인쇄됩니다
-   - 페이지 잘림 없이 출력됩니다
+| Script | What it does |
+| --- | --- |
+| `npm run dev` / `npm start` | Start the Vite dev server |
+| `npm run build` | Type-check, then production build to `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` / `npm run lint` | `tsc --noEmit` |
+| `npm test` | Run Vitest once |
+| `npm run coverage` | Tests with V8 coverage |
 
-***
+## How to use
 
-## 🧩 아키텍처
+1. The page opens with a demo resume.
+2. Type a GitHub username (for example `octocat`) or a `github.com/...` URL and click **Import**.
+3. Pick a design, alignment, and interface language. Toggle light/dark UI with the floating button.
+4. Edit any field on the page.
+5. Click **ATS Check** to see a score and recommendations.
+6. **Export PDF** or **Save JSON**.
 
-이 프로젝트는 SPA 구조로 만들었습니다 (GitHub Pages 사용).
+GitHub unauthenticated API limits apply. If import fails with a rate-limit message, wait and retry.
 
-- TypeScript 모듈 코드 사용해서 빠른 속도
-- React 같은 프레임워크 사용 안 했습니다
-- 그래서 더 가볍고 빠르게 동작합니다
+## Project layout
 
-***
+```
+index.html                 # App shell and print styles
+src/
+  main.ts                  # UI wiring: import, design, ATS, export, i18n
+  resume-builder.ts        # Renders resume HTML from data
+  github-provider.ts       # GitHub API + username parsing
+  demo-profile.ts          # Faker-based sample resume
+  translations.ts          # EN / RU / KO chrome strings
+  styles.css               # UI chrome + 30 design themes
+  designs/design-templates.ts
+  services/ATSService.ts   # ATS scoring
+  services/ExportService.ts
+  config/ats-keywords.ts
+  i18n/                    # Section labels and ATS message maps
+  types.ts / types/ats.ts
+__tests__/                 # Vitest unit tests
+.github/workflows/ci.yml   # Typecheck, tests, production build
+```
 
-## ▶ 실행 방법
+## Continuous integration
 
-1. index.html 파일 브라우저에서 엽니다
-2. GitHub 사용자 이름 입력합니다
-3. Import 버튼 클릭합니다
-4. 테마 선택 후 PDF 출력합니다
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes and pull requests to `main`. It installs dependencies, type-checks the project, runs Vitest, and produces a production build.
 
-※ 인터넷 연결 필요합니다
+There is no CodeQL workflow in this repository. GitHub’s default CodeQL setup is not useful here: the app has no server, no database, and no authentication surface. Security-sensitive rendering uses `textContent` rather than `innerHTML` for user-derived resume fields.
 
-***
+## License
 
-## 🤖 AI 사용
-
-이 프로젝트에서 AI 도구(ChatGPT, Claude) 사용했습니다
-
-- TypeScript 인터페이스 설계 도움
-- CSS 기본 코드 생성
-- 하지만 모든 코드는 직접 수정하고 확인했습니다
-
-***
-
-## 🎓 정보
-
-- Author: Khudayberdiev Almaz
-- License: MIT (see [LICENSE](LICENSE))
+MIT. See [LICENSE](LICENSE).
 
 Copyright © 2026 Khudayberdiev Almaz
