@@ -72,7 +72,7 @@ Pretext Resume Builder는 포트폴리오 자동 만드는 웹 서비스입니�
 
 ## 🎓 정보
 
-- Author: Almaz Khudayberdiev
-- License: MIT
+- Author: Khudayberdiev Almaz
+- License: MIT (see [LICENSE](LICENSE))
 
-Copyright © 2026
+Copyright © 2026 Khudayberdiev Almaz
