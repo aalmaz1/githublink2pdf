@@ -2,7 +2,7 @@ export type Lang = 'en' | 'ru' | 'ko';
 
 export const translations = {
   en: {
-    appTitle: 'Resume Builder',
+    appTitle: 'Github Link2PDF Resume Builder',
     githubPlaceholder: 'Enter GitHub username (e.g. octocat)',
     generateBtn: 'Generate Resume',
     exportBtn: 'Export PDF',
@@ -34,7 +34,7 @@ export const translations = {
     jsonSaved: '✅ JSON file downloaded'
   },
   ru: {
-    appTitle: 'Конструктор Резюме',
+    appTitle: 'Github Link2PDF Resume Builder',
     githubPlaceholder: 'Введите имя пользователя GitHub (например, octocat)',
     generateBtn: 'Сгенерировать резюме',
     exportBtn: 'Экспорт в PDF',
@@ -66,7 +66,7 @@ export const translations = {
     jsonSaved: '✅ JSON файл загружен'
   },
   ko: {
-    appTitle: '이력서 빌더',
+    appTitle: 'Github Link2PDF Resume Builder',
     githubPlaceholder: 'GitHub 사용자명 입력 (예: octocat)',
     generateBtn: '이력서 생성',
     exportBtn: 'PDF 내보내기',
