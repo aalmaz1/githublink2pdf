@@ -1,4 +1,4 @@
-# Pretext Resume Builder
+# Github Link2PDF Resume Builder
 
 A client-side resume builder that turns a GitHub profile into an editable, ATS-aware, print-ready resume. Built as a Vite single-page app in TypeScript — no backend, no framework.
 

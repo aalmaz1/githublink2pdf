@@ -1,5 +1,5 @@
 /**
- * Pretext-Inspired Typographic Engine
+ * Resume Typographic Engine
  * This module implements the Layout Primitive pattern
  * logic, specifically extending the 'Editorial Engine' concept.
  */
