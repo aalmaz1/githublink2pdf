@@ -497,4 +497,202 @@ describe('ATSService', () => {
       }
     });
   });
+  describe('whole-word keyword matching', () => {
+    it('should not count technical keywords hidden inside unrelated words', () => {
+      // "restaurant" contains "rest", "going" contains "go",
+      // "available" contains "ai". Substring matching scored a chef as a
+      // technical candidate.
+      const chef: ResumeData = {
+        personal: {
+          name: 'Maria Gonzalez',
+          title: 'Pastry Chef',
+          email: 'maria@example.com',
+          phone: '+34 600 000 000',
+          location: 'Lyon',
+          github: '',
+          linkedin: ''
+        },
+        education: [],
+        experience: [{
+          institution: 'Michelin restaurant',
+          role: 'Pastry Chef',
+          period: '2019 - 2024',
+          description: [
+            'Ran the dessert station and everything going out of the pass was available on time.',
+            'Trained six junior cooks and cut ingredient waste across the kitchen brigade.'
+          ]
+        }],
+        skills: [{ category: 'Kitchen', items: ['plating', 'chocolate work', 'gelato'] }]
+      };
+
+      const result = atsService.analyze(chef);
+
+      expect(
+        result.issues.some(i => i.message.includes('No role-relevant keywords found'))
+      ).toBe(true);
+      expect(result.breakdown.keywords.score).toBe(0);
+    });
+
+    it('should still match real keywords that appear as whole words', () => {
+      const result = atsService.analyze(createFullResume());
+
+      expect(
+        result.issues.some(i => /technical keywords|keywords presence|keyword/i.test(i.message))
+      ).toBe(true);
+      expect(result.breakdown.keywords.score).toBeGreaterThan(0);
+    });
+
+    it('should not treat "led" inside "settled" as an action verb', () => {
+      const noVerbs: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Front Desk Ltd',
+          role: 'Receptionist',
+          period: '2020 - 2023',
+          description: ['Handled complaints and settled billing disputes at the front desk.']
+        }]
+      };
+
+      const result = atsService.analyze(noVerbs);
+
+      expect(
+        result.issues.some(i => i.message.includes('Use action verbs'))
+      ).toBe(true);
+    });
+  });
+
+  describe('quantifiable achievement detection', () => {
+    it('should count every metric bullet, not every other one', () => {
+      // The shared patterns used to carry the /g flag, so a stateful
+      // lastIndex made repeated .test() calls skip alternating bullets.
+      const metrics: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Scale Co',
+          role: 'Engineer',
+          period: '2020 - 2024',
+          description: [
+            'Reduced p99 latency by 40% for the checkout service across all regions.',
+            'Reduced infrastructure spend by 25% on the data pipeline over two quarters.',
+            'Reduced onboarding time by 30% for new engineers with better documentation.',
+            'Reduced flaky tests by 80% so the pipeline stopped blocking daily releases.'
+          ]
+        }]
+      };
+
+      const result = atsService.analyze(metrics);
+      const message = result.issues.find(i => i.message.includes('quantifiable achievements'));
+
+      expect(message?.message).toContain('4');
+    });
+
+    it('should be deterministic across repeated analyses of the same resume', () => {
+      const resume = createFullResume();
+      const scores = [1, 2, 3, 4, 5].map(() => atsService.analyze(resume).score);
+
+      expect(new Set(scores).size).toBe(1);
+    });
+
+    it('should not treat an unmeasured claim as a quantified achievement', () => {
+      const vague: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Vague Corp',
+          role: 'Engineer',
+          period: '2020 - 2024',
+          description: [
+            'Improved performance of the service and optimized the database layer.',
+            'Reduced complexity of the codebase while increasing developer happiness.'
+          ]
+        }]
+      };
+
+      const result = atsService.analyze(vague);
+
+      expect(
+        result.issues.some(i => i.message.includes('No quantified achievements'))
+      ).toBe(true);
+    });
+  });
+
+  describe('summary component', () => {
+    it('should score the headline instead of reporting a permanent zero', () => {
+      const result = atsService.analyze(createFullResume());
+
+      expect(result.breakdown.summary.weight).toBeGreaterThan(0);
+      expect(result.breakdown.summary.score).toBeGreaterThan(0);
+    });
+
+    it('should flag a missing headline', () => {
+      const noTitle: ResumeData = {
+        ...createFullResume(),
+        personal: { ...createFullResume().personal, title: '' }
+      };
+
+      const result = atsService.analyze(noTitle);
+
+      expect(result.breakdown.summary.score).toBe(0);
+      expect(
+        result.issues.some(i => i.category === 'summary' && i.message.includes('headline is empty'))
+      ).toBe(true);
+    });
+
+    it('should rank a keyword-bearing headline above a bare one', () => {
+      const base = createFullResume();
+      const bare: ResumeData = { ...base, personal: { ...base.personal, title: 'Employee' } };
+      const specific: ResumeData = {
+        ...base,
+        personal: { ...base.personal, title: 'Backend Engineer specialising in Python and Kubernetes' }
+      };
+
+      expect(atsService.analyze(specific).breakdown.summary.score)
+        .toBeGreaterThan(atsService.analyze(bare).breakdown.summary.score);
+    });
+  });
+
+  describe('score weighting', () => {
+    it('should use component weights that sum to 1 for every profile', () => {
+      const profiles: ResumeData[] = [
+        createFullResume(),
+        { ...createFullResume(), personal: { ...createFullResume().personal, title: 'Marketing Director' } },
+        { ...createFullResume(), personal: { ...createFullResume().personal, title: 'Product Designer' } },
+        { ...createEmptyResume(), personal: { ...createEmptyResume().personal, title: 'Computer Science student' } }
+      ];
+
+      for (const resume of profiles) {
+        const { breakdown } = atsService.analyze(resume);
+        const total = Object.values(breakdown)
+          .filter((component): component is NonNullable<typeof component> => !!component)
+          .reduce((sum, component) => sum + component.weight, 0);
+
+        expect(total).toBeCloseTo(1, 5);
+      }
+    });
+  });
+
+  describe('issue severity', () => {
+    it('should not report a recommended-only contact field as an error', () => {
+      const result = atsService.analyze({
+        ...createFullResume(),
+        personal: { ...createFullResume().personal, linkedin: '' }
+      });
+
+      const linkedIn = result.issues.find(i => i.message === 'Missing LinkedIn');
+
+      expect(linkedIn?.type).toBe('warning');
+    });
+
+    it('should report issues in English only', () => {
+      const results = [
+        atsService.analyze(createFullResume()),
+        atsService.analyze(createEmptyResume())
+      ];
+
+      for (const result of results) {
+        for (const issue of result.issues) {
+          expect(issue.message).not.toMatch(/[\u0400-\u04FF]/);
+        }
+      }
+    });
+  });
 });
