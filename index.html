@@ -6,13 +6,9 @@
     <link rel="icon" type="image/svg+xml" href="/filetype-txt.svg">
     <title>Github Link2PDF Resume Builder</title>
     
-    <!-- Google Fonts - 3 Typography Systems for A/B Testing -->
-    <!-- System A: Professional (Merriweather + Inter) - Strict, Business -->
-    <!-- System B: Friendly (Poppins + Open Sans) - Modern, Creative -->
-    <!-- System C: Neutral (System Fonts) - Universal, Fastest -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:wght@400;700;900&family=Open+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:wght@400;700;900&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="/src/styles.css">
     
@@ -42,7 +38,7 @@
                 -webkit-margin-before: 0;
                 -webkit-margin-after: 0;
             }
-            .controls-bar, #loading-overlay, .no-print {
+            .controls-bar, #loading-overlay {
                 display: none !important;
             }
             #resume-container {
@@ -70,7 +66,7 @@
                 color: #000 !important;
             }
             /* Prevent page breaks inside sections */
-            .resume-section, .entity-item, .section-block, .positioned-block {
+            .entity-item, .section-block, .positioned-block {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
@@ -91,7 +87,7 @@
                 margin-bottom: 10px !important;
                 break-inside: avoid;
             }
-            h1, h2, .contact-line {
+            h1, h2 {
                 overflow-wrap: break-word;
                 word-wrap: break-word;
                 hyphens: auto;

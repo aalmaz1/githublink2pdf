@@ -8,7 +8,7 @@
  * - Easy to extend: add new design to DESIGNS array and corresponding CSS
  */
 
-export interface DesignTemplate {
+interface DesignTemplate {
   id: string;
   name: string;
   category: 'professional' | 'creative' | 'minimal' | 'tech' | 'business' | 'elegant' | 'modern' | 'bold';
@@ -242,43 +242,10 @@ export const DESIGNS: DesignTemplate[] = [
   }
 ];
 
-export const DESIGN_CATEGORIES = [
-  'all',
-  'professional',
-  'creative',
-  'minimal',
-  'tech',
-  'business',
-  'elegant',
-  'bold'
-] as const;
-
-/**
- * Get design by ID
- */
-export function getDesignById(id: string): DesignTemplate | undefined {
-  return DESIGNS.find(d => d.id === id);
-}
-
 /**
  * Get random design
  */
 export function getRandomDesign(): DesignTemplate {
   const randomIndex = Math.floor(Math.random() * DESIGNS.length);
   return DESIGNS[randomIndex];
-}
-
-/**
- * Get designs by category
- */
-export function getDesignsByCategory(category: string): DesignTemplate[] {
-  if (category === 'all') return DESIGNS;
-  return DESIGNS.filter(d => d.category === category);
-}
-
-/**
- * Get all design IDs for quick lookup
- */
-export function getAllDesignIds(): string[] {
-  return DESIGNS.map(d => d.id);
 }

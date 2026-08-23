@@ -1,41 +1,11 @@
 /* ==========================================================================
-   TYPOGRAPHY SYSTEM — 3 Professional Options for Resume Builder
-   Switch between systems by changing CSS variable values
+   TYPOGRAPHY SYSTEM
    ========================================================================== */
 
-/* Font Families - 3 Systems Available */
 :root {
-  /* 
-   * SYSTEM A: PROFESSIONAL (Default)
-   * Merriweather (headings) + Inter (body)
-   * Best for: Finance, Law, Academia, Consulting
-   * Vibe: Trustworthy, established, authoritative
-   */
   --font-heading: 'Merriweather', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  
-  /* 
-   * SYSTEM B: FRIENDLY & MODERN
-   * Uncomment to use: Poppins (headings) + Open Sans (body)
-   * Best for: Tech startups, Creative industries, Marketing
-   * Vibe: Approachable, energetic, contemporary
-   */
-  /*
-  --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-body: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  */
-  
-  /* 
-   * SYSTEM C: NEUTRAL & UNIVERSAL (Fastest)
-   * Uncomment to use: System fonts only (0ms load time)
-   * Best for: Any industry, maximum performance
-   * Vibe: Clean, invisible, platform-native
-   */
-  /*
-  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  */
-  
+
   /* Fallback for resume container (print-safe) */
   --font-resume: var(--font-body);
   
@@ -49,14 +19,11 @@
    ========================================================================== */
 :root {
   /* Font Sizes */
-  --text-xs:    0.75rem;   /* 12px — Captions, metadata */
   --text-sm:    0.875rem;  /* 14px — Secondary text, dates */
   --text-base:  1rem;      /* 16px — Body text */
-  --text-lg:    1.125rem;  /* 18px — Lead text, descriptions */
   --text-xl:    1.25rem;   /* 20px — H3, section titles */
   --text-2xl:   1.5rem;    /* 24px — H2, name */
   --text-3xl:   1.875rem;  /* 30px — H1, resume title */
-  --text-4xl:   2.25rem;   /* 36px — Hero, large accents */
   
   /* Line Heights — Tighter for headings, looser for body */
   --leading-none:     1;
@@ -64,7 +31,6 @@
   --leading-snug:     1.375;
   --leading-normal:   1.5;
   --leading-relaxed:  1.625;
-  --leading-loose:    2;
   
   /* Font Weights */
   --font-normal:  400;
@@ -73,7 +39,6 @@
   --font-bold:    700;
   
   /* Letter Spacing */
-  --tracking-tighter: -0.025em;
   --tracking-tight:   -0.0125em;
   --tracking-normal:  0;
   --tracking-wide:    0.025em;
@@ -105,12 +70,7 @@
   --resume-text: #0f172a;
   
   /* Semantic Colors */
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
   --color-secondary: #64748b;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
   
   /* Spacing Unit */
   --spacing-unit: 8px;
@@ -138,12 +98,7 @@
   --resume-text: #0f172a;
   
   /* Semantic Colors (Dark) */
-  --color-primary: #818cf8;
-  --color-primary-hover: #a5b4fc;
   --color-secondary: #94a3b8;
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-error: #f87171;
 }
 
 /* Visually hidden utility for screen readers */
@@ -202,11 +157,9 @@ body {
 body.theme-classic {
   --primary-color: #1e293b;
   --accent-color: #4f46e5;
-  --font-family: var(--font-heading);
   --padding-unit: 16px;
   --heading-color: #0f172a;
   --muted-color: #64748b;
-  --bg-surface: #ffffff;
   --border-color: #cbd5e1;
 }
 
@@ -217,11 +170,9 @@ body.theme-classic {
 body.theme-modern {
   --primary-color: #1e1e2e;
   --accent-color: #4f46e5;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #4f46e5;
   --muted-color: #64748b;
-  --bg-surface: #ffffff;
   --border-color: #e0e7ff;
 }
 
@@ -248,11 +199,9 @@ body.theme-modern .section-block h3 {
 body.theme-minimal {
   --primary-color: #0f172a;
   --accent-color: #0f172a;
-  --font-family: var(--font-body);
   --padding-unit: 24px;
   --heading-color: #0f172a;
   --muted-color: #94a3b8;
-  --bg-surface: #ffffff;
   --border-color: #e2e8f0;
 }
 
@@ -279,11 +228,9 @@ body.theme-minimal h1 {
 body.theme-executive {
   --primary-color: #1a365d;
   --accent-color: #2c5282;
-  --font-family: var(--font-heading);
   --padding-unit: 18px;
   --heading-color: #1a202c;
   --muted-color: #4a5568;
-  --bg-surface: #ffffff;
   --border-color: #cbd5e0;
 }
 body.theme-executive h1 {
@@ -303,11 +250,9 @@ body.theme-executive .section-block h3 {
 body.theme-corporate {
   --primary-color: #2d3748;
   --accent-color: #3182ce;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #1a202c;
   --muted-color: #718096;
-  --bg-surface: #ffffff;
   --border-color: #e2e8f0;
 }
 body.theme-corporate #resume-container {
@@ -330,11 +275,9 @@ body.theme-corporate .section-block h3 {
 body.theme-formal {
   --primary-color: #000000;
   --accent-color: #000000;
-  --font-family: var(--font-heading);
   --padding-unit: 16px;
   --heading-color: #000000;
   --muted-color: #333333;
-  --bg-surface: #ffffff;
   --border-color: #cccccc;
 }
 body.theme-formal h1 {
@@ -359,11 +302,9 @@ body.theme-formal .section-block h3 {
 body.theme-diplomatic {
   --primary-color: #4a5568;
   --accent-color: #718096;
-  --font-family: var(--font-body);
   --padding-unit: 18px;
   --heading-color: #2d3748;
   --muted-color: #a0aec0;
-  --bg-surface: #ffffff;
   --border-color: #e2e8f0;
 }
 body.theme-diplomatic h1 {
@@ -383,11 +324,9 @@ body.theme-diplomatic .section-block h3 {
 body.theme-creative {
   --primary-color: #9a3412; /* Darkened from #dd6b20 to meet WCAG AA 4.5:1 contrast (5.9:1) */
   --accent-color: #ed8936;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #2d3748;
   --muted-color: #a0aec0;
-  --bg-surface: #ffffff;
   --border-color: #fed7aa;
 }
 body.theme-creative h1 {
@@ -411,11 +350,9 @@ body.theme-creative #resume-container {
 body.theme-artistic {
   --primary-color: #805ad5;
   --accent-color: #d69e2e;
-  --font-family: var(--font-heading);
   --padding-unit: 22px;
   --heading-color: #2d3748;
   --muted-color: #718096;
-  --bg-surface: #fffff0;
   --border-color: #e9d8fd;
 }
 body.theme-artistic h1 {
@@ -434,11 +371,9 @@ body.theme-artistic .section-block h3 {
 body.theme-designer {
   --primary-color: #ec4899;
   --accent-color: #8b5cf6;
-  --font-family: var(--font-body);
   --padding-unit: 24px;
   --heading-color: #1f2937;
   --muted-color: #9ca3af;
-  --bg-surface: #ffffff;
   --border-color: #f3f4f6;
 }
 body.theme-designer #resume-container {
@@ -467,11 +402,9 @@ body.theme-designer .section-block h3 {
 body.theme-vibrant {
   --primary-color: #059669;
   --accent-color: #10b981;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #064e3b;
   --muted-color: #6ee7b7;
-  --bg-surface: #ecfdf5;
   --border-color: #a7f3d0;
 }
 body.theme-vibrant h1 {
@@ -492,11 +425,9 @@ body.theme-vibrant .section-block h3 {
 body.theme-playful {
   --primary-color: #f59e0b;
   --accent-color: #fbbf24;
-  --font-family: var(--font-body);
   --padding-unit: 18px;
   --heading-color: #78350f;
   --muted-color: #d97706;
-  --bg-surface: #fffbeb;
   --border-color: #fde68a;
 }
 body.theme-playful h1 {
@@ -518,11 +449,9 @@ body.theme-playful .section-block h3 {
 body.theme-pure {
   --primary-color: #111827;
   --accent-color: #6b7280;
-  --font-family: var(--font-body);
   --padding-unit: 28px;
   --heading-color: #111827;
   --muted-color: #9ca3af;
-  --bg-surface: #ffffff;
   --border-color: #f3f4f6;
 }
 body.theme-pure h1 {
@@ -548,11 +477,9 @@ body.theme-pure .section-block {
 body.theme-zen {
   --primary-color: #57534e;
   --accent-color: #78716c;
-  --font-family: var(--font-body);
   --padding-unit: 32px;
   --heading-color: #44403c;
   --muted-color: #a8a29e;
-  --bg-surface: #fafaf9;
   --border-color: #e7e5e4;
 }
 body.theme-zen h1 {
@@ -582,11 +509,9 @@ body.theme-zen .section-block h3::after {
 body.theme-mono {
   --primary-color: #1f2937;
   --accent-color: #10b981;
-  --font-family: var(--font-mono);
   --padding-unit: 16px;
   --heading-color: #111827;
   --muted-color: #6b7280;
-  --bg-surface: #ffffff;
   --border-color: #e5e7eb;
 }
 body.theme-mono * {
@@ -610,11 +535,9 @@ body.theme-mono .section-block h3 {
 body.theme-swiss {
   --primary-color: #000000;
   --accent-color: #ff0000;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #000000;
   --muted-color: #666666;
-  --bg-surface: #ffffff;
   --border-color: #000000;
 }
 body.theme-swiss h1 {
@@ -641,11 +564,9 @@ body.theme-swiss .entity-item {
 body.theme-developer {
   --primary-color: #61dafb;
   --accent-color: #00d8ff;
-  --font-family: var(--font-mono);
   --padding-unit: 16px;
   --heading-color: #282c34;
   --muted-color: #abb2bf;
-  --bg-surface: #ffffff;
   --border-color: #e5e7eb;
 }
 body.theme-developer h1 {
@@ -668,19 +589,14 @@ body.theme-developer .section-block h3 {
   font-family: var(--font-mono);
   font-size: 0.9rem;
 }
-body.theme-developer .period {
-  color: #98c379;
-}
 
 /* Startup - Fresh startup culture vibe */
 body.theme-startup {
   --primary-color: #3b82f6;
   --accent-color: #60a5fa;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #1e3a8a;
   --muted-color: #93c5fd;
-  --bg-surface: #eff6ff;
   --border-color: #bfdbfe;
 }
 body.theme-startup h1 {
@@ -698,11 +614,9 @@ body.theme-startup .section-block h3 {
 body.theme-cyber {
   --primary-color: #00ffff;
   --accent-color: #ff00ff;
-  --font-family: var(--font-mono);
   --padding-unit: 18px;
   --heading-color: #0a0a0a;
   --muted-color: #666666;
-  --bg-surface: #000000;
   --border-color: #333333;
 }
 body.theme-cyber #resume-container {
@@ -727,19 +641,14 @@ body.theme-cyber .section-block h3 {
 body.theme-cyber p, body.theme-cyber li, body.theme-cyber span {
   color: #00ffff !important;
 }
-body.theme-cyber .period {
-  color: #ff00ff !important;
-}
 
 /* Terminal - Command-line inspired */
 body.theme-terminal {
   --primary-color: #22c55e;
   --accent-color: #16a34a;
-  --font-family: var(--font-mono);
   --padding-unit: 14px;
   --heading-color: #dcfce7;
   --muted-color: #86efac;
-  --bg-surface: #0c0a09;
   --border-color: #292524;
 }
 body.theme-terminal #resume-container {
@@ -767,9 +676,6 @@ body.theme-terminal .section-block h3 {
   border: none;
   font-family: var(--font-mono);
 }
-body.theme-terminal .period {
-  color: #86efac !important;
-}
 
 /* ==================== BUSINESS DESIGNS ==================== */
 
@@ -777,11 +683,9 @@ body.theme-terminal .period {
 body.theme-business {
   --primary-color: #1e40af;
   --accent-color: #3b82f6;
-  --font-family: var(--font-body);
   --padding-unit: 18px;
   --heading-color: #1e3a8a;
   --muted-color: #60a5fa;
-  --bg-surface: #ffffff;
   --border-color: #dbeafe;
 }
 body.theme-business .resume-header {
@@ -806,11 +710,9 @@ body.theme-business .section-block h3 {
 body.theme-finance {
   --primary-color: #064e3b;
   --accent-color: #059669;
-  --font-family: var(--font-heading);
   --padding-unit: 16px;
   --heading-color: #064e3b;
   --muted-color: #6ee7b7;
-  --bg-surface: #ffffff;
   --border-color: #a7f3d0;
 }
 body.theme-finance h1 {
@@ -831,11 +733,9 @@ body.theme-finance .section-block h3 {
 body.theme-consulting {
   --primary-color: #1e3a5f;
   --accent-color: #3b5998;
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #1e3a5f;
   --muted-color: #6b7280;
-  --bg-surface: #ffffff;
   --border-color: #e5e7eb;
 }
 body.theme-consulting h1 {
@@ -858,11 +758,9 @@ body.theme-consulting .section-block h3 {
 body.theme-legal {
   --primary-color: #374151;
   --accent-color: #6b7280;
-  --font-family: var(--font-heading);
   --padding-unit: 18px;
   --heading-color: #111827;
   --muted-color: #9ca3af;
-  --bg-surface: #ffffff;
   --border-color: #d1d5db;
 }
 body.theme-legal h1 {
@@ -888,11 +786,9 @@ body.theme-legal .section-block h3 {
 body.theme-academic {
   --primary-color: #7c2d12;
   --accent-color: #ea580c;
-  --font-family: var(--font-heading);
   --padding-unit: 18px;
   --heading-color: #431407;
   --muted-color: #9a3412;
-  --bg-surface: #fef3c7;
   --border-color: #fdba74;
 }
 body.theme-academic h1 {
@@ -914,11 +810,9 @@ body.theme-academic .section-block h3 {
 body.theme-elegant {
   --primary-color: #7c3aed;
   --accent-color: #a78bfa;
-  --font-family: var(--font-heading);
   --padding-unit: 22px;
   --heading-color: #5b21b6;
   --muted-color: #c4b5fd;
-  --bg-surface: #faf5ff;
   --border-color: #e9d5ff;
 }
 body.theme-elegant h1 {
@@ -951,11 +845,9 @@ body.theme-elegant .section-block h3::after {
 body.theme-luxury {
   --primary-color: #b45309;
   --accent-color: #d97706;
-  --font-family: var(--font-heading);
   --padding-unit: 24px;
   --heading-color: #78350f;
   --muted-color: #fcd34d;
-  --bg-surface: #fffbeb;
   --border-color: #fde68a;
 }
 body.theme-luxury h1 {
@@ -980,11 +872,9 @@ body.theme-luxury #resume-container {
 body.theme-refined {
   --primary-color: #be185d;
   --accent-color: #ec4899;
-  --font-family: var(--font-heading);
   --padding-unit: 20px;
   --heading-color: #831843;
   --muted-color: #f9a8d4;
-  --bg-surface: #fdf2f8;
   --border-color: #fbcfe8;
 }
 body.theme-refined h1 {
@@ -1004,11 +894,9 @@ body.theme-refined .section-block h3 {
 body.theme-bold {
   --primary-color: #dc2626;
   --accent-color: #b91c1c; /* Darkened from #ef4444 to meet WCAG AA 4.5:1 contrast with white text */
-  --font-family: var(--font-body);
   --padding-unit: 20px;
   --heading-color: #991b1b;
   --muted-color: #f87171;
-  --bg-surface: #fef2f2;
   --border-color: #fecaca;
 }
 body.theme-bold h1 {
@@ -1032,11 +920,9 @@ body.theme-bold .section-block h3 {
 body.theme-impact {
   --primary-color: #000000;
   --accent-color: #ffffff;
-  --font-family: var(--font-body);
   --padding-unit: 24px;
   --heading-color: #000000;
   --muted-color: #666666;
-  --bg-surface: #ffffff;
   --border-color: #000000;
 }
 body.theme-impact h1 {
@@ -1476,19 +1362,8 @@ input[type="text"]:focus {
   width: 100%;
 }
 
-.layout-line.entity-header {
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
 
-.layout-line.contact-line {
-  justify-content: center;
-}
 
-.layout-line.skills-content {
-  flex-direction: column;
-  gap: 4px;
-}
 
 /* Text alignment support for print */
 .section-block {
@@ -1547,17 +1422,7 @@ h3 {
   font-weight: var(--font-semibold);
 }
 
-.role-org {
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-}
 
-.period {
-  font-size: var(--text-sm);
-  color: var(--muted-color);
-  white-space: nowrap;
-  font-weight: var(--font-normal);
-}
 
 ul {
   list-style: disc;
@@ -1579,10 +1444,6 @@ li {
   widows: 2;
 }
 
-.skill-category {
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-}
 
 .skills-grid {
   display: grid;
@@ -1591,29 +1452,6 @@ li {
   margin-top: 10px;
 }
 
-/* ==========================================================================
-   README Content Styling - Monospace for code
-   ========================================================================== */
-.readme-content {
-  font-family: var(--font-mono);
-  font-size: 9pt;
-  line-height: var(--leading-normal);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  background: #f6f8fa;
-  padding: 15px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  max-height: 400px;
-  overflow-y: auto;
-  color: #24292f;
-}
-
-[data-theme="dark"] .readme-content {
-  background: #0d1117;
-  border-color: #30363d;
-  color: #c9d1d9;
-}
 
 /* ==========================================================================
    @media print overrides - for native browser print (backup)
@@ -1634,7 +1472,6 @@ li {
   }
 
   .controls-bar,
-  .no-print,
   #loading-overlay,
   .theme-toggle-floating {
     display: none !important;
@@ -1698,22 +1535,6 @@ li {
   hyphens: auto !important;
   -webkit-hyphens: auto !important;
   -ms-hyphens: auto !important;
-}
-
-/* Helper classes for manual page break control */
-.page-break-before {
-  page-break-before: always !important;
-  break-before: page !important;
-}
-
-.page-break-after {
-  page-break-after: always !important;
-  break-after: page !important;
-}
-
-.avoid-page-break {
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
 }
 
 /* ==========================================================================
@@ -2190,13 +2011,6 @@ li {
     width: 100% !important;
     max-width: 100% !important;
   }
-}
-
-/* ==========================================================================
-   Old ATS Result Card Styles (Deprecated - kept for backward compatibility)
-   ========================================================================== */
-.ats-result-card {
-  display: none; /* Hidden - using new panel instead */
 }
 
 @keyframes fadeIn {

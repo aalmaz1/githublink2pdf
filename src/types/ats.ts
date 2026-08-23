@@ -7,7 +7,7 @@ export interface ATSIssue {
   field?: string;
 }
 
-export interface ATSScoreComponent {
+interface ATSScoreComponent {
   score: number;      // текущий балл (0-100)
   maxScore: number;   // максимальный балл для этого компонента
   weight: number;     // вес компонента в итоговой сумме

@@ -1,7 +1,6 @@
 import { ATSResult, ATSIssue, ATSScoreBreakdown, ResumeProfile } from '../types/ats';
 import { ResumeData } from '../types';
 import {
-  BASE_TECH_KEYWORDS,
   ACTION_VERBS,
   MANAGEMENT_KEYWORDS,
   DESIGN_KEYWORDS,

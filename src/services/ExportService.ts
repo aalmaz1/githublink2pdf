@@ -1,8 +1,6 @@
 /**
- * Export Service - handles PDF and JSON export functionality
+ * Export Service - handles PDF export functionality
  */
-
-import { ResumeData } from '../types';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -13,30 +11,6 @@ interface Html2PdfModule {
 export class ExportService {
   private html2pdfInstance: any | null = null;
   private cacheTimestamp: number = 0;
-
-  /**
-   * Export resume data as JSON file
-   */
-  public exportToJson(data: ResumeData): void {
-    if (!data.personal?.name) {
-      throw new Error('Invalid resume data for export');
-    }
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    try {
-      const a = document.createElement('a');
-      a.href = url;
-      const safeName = data.personal.name.replace(/\s+/g, '-').toLowerCase();
-      a.download = `resume-${safeName}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
 
   /**
    * Export resume container as PDF using html2pdf.js with lazy loading
@@ -81,12 +55,7 @@ export class ExportService {
             orientation: 'portrait',
             hotfixes: ['PAGE_BREAK']
           },
-          pagebreak: {
-            mode: ['avoid-all', 'css', 'legacy'],
-            before: '.page-break-before',
-            after: '.page-break-after',
-            avoid: '.avoid-page-break'
-          }
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         })
         .from(container)
         .save();
@@ -115,7 +84,7 @@ export class ExportService {
       } else {
         throw new Error('html2pdf default export not found');
       }
-    } catch (error) {
+    } catch {
       throw new Error('Failed to load PDF export library');
     }
   }

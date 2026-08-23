@@ -9,7 +9,7 @@ interface CacheEntry<T> {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export class GitHubCache {
+class GitHubCache {
   private cache = new Map<string, CacheEntry<any>>();
 
   public get<T>(key: string): T | null {
@@ -33,14 +33,6 @@ export class GitHubCache {
       data,
       timestamp: Date.now()
     });
-  }
-
-  public clear(): void {
-    this.cache.clear();
-  }
-
-  public delete(key: string): void {
-    this.cache.delete(key);
   }
 }
 

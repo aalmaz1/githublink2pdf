@@ -1,4 +1,4 @@
-export interface PersonalDetails {
+interface PersonalDetails {
   name: string;
   title: string;
   email: string;
