@@ -1,5 +1,6 @@
 import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
+import { readResumeFromDom } from './resume-editor';
 import { ExportService } from './services/ExportService';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
@@ -18,6 +19,19 @@ const atsService = new ATSService();
 const exportService = new ExportService();
 
 const defaultData: ResumeData = generateDemoProfile();
+
+/**
+ * The preview is contenteditable, so the DOM holds the newest text. Always
+ * read through here before exporting or analysing, and cache the result so
+ * later calls stay consistent even if the container disappears.
+ */
+function getCurrentResumeData(): ResumeData | null {
+  const container = document.getElementById('resume-container');
+  if (!container || !currentResumeData) return currentResumeData;
+
+  currentResumeData = readResumeFromDom(container, currentResumeData);
+  return currentResumeData;
+}
 
 /**
  * Update all UI text based on current language
@@ -52,8 +66,9 @@ function updateInterfaceLanguage(lang: Lang): void {
 
   // Re-render the open ATS panel so its labels follow the new language
   const openPanel = document.getElementById('ats-panel');
-  if (openPanel && !openPanel.classList.contains('hidden') && currentResumeData) {
-    showATSResultPanel(atsService.analyze(currentResumeData));
+  const liveData = getCurrentResumeData();
+  if (openPanel && !openPanel.classList.contains('hidden') && liveData) {
+    showATSResultPanel(atsService.analyze(liveData));
   }
   
   // Update placeholder specifically
@@ -336,6 +351,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchGitHubResumeData(input);
       updateUI(data, container);
       showNotification(tr(currentLang, 'profileLoaded'), 'success');
+
+      // The import never fabricates employment or education, so the user has
+      // to be told those sections are waiting for them - otherwise a blank
+      // Experience block reads as a bug rather than a prompt.
+      if (!data.experience?.length || !data.education?.length) {
+        setTimeout(
+          () => showNotification(tr(currentLang, 'fillInExperience'), 'info'),
+          2600
+        );
+      }
       
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -355,12 +380,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // JSON Export with notification
   document.getElementById('save-json')?.addEventListener('click', () => {
-    if (!currentResumeData) return;
-    const blob = new Blob([JSON.stringify(currentResumeData, null, 2)], { type: 'application/json' });
+    const data = getCurrentResumeData();
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resume-${currentResumeData.personal.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.download = `resume-${slugify(data.personal.name)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showNotification(tr(currentLang, 'jsonSaved'), 'success');
@@ -368,8 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // PDF Export with notification
   document.getElementById('export-pdf')?.addEventListener('click', async () => {
+    const data = getCurrentResumeData();
+    if (!data) return;
     try {
-      await exportService.exportToPdf('resume-container');
+      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`);
       showNotification(tr(currentLang, 'exportSuccess'), 'success');
     } catch (error) {
       console.error('PDF export error:', error);
@@ -381,9 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // ATS Check Button - Toggle panel visibility
   document.getElementById('ats-check')?.addEventListener('click', () => {
     logger.debug('ATS Check clicked');
-    logger.debug('currentResumeData:', currentResumeData);
+    const liveData = getCurrentResumeData();
+    logger.debug('currentResumeData:', liveData);
     
-    if (!currentResumeData) {
+    if (!liveData) {
       logger.error('No resume data available');
       return;
     }
@@ -396,16 +425,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     logger.debug('Analyzing resume:', {
-      email: currentResumeData.personal.email,
-      github: currentResumeData.personal.github,
-      phone: currentResumeData.personal.phone,
-      linkedin: currentResumeData.personal.linkedin,
-      title: currentResumeData.personal.title,
-      skillsCount: currentResumeData.skills?.length || 0,
-      experienceCount: currentResumeData.experience?.length || 0
+      email: liveData.personal.email,
+      github: liveData.personal.github,
+      phone: liveData.personal.phone,
+      linkedin: liveData.personal.linkedin,
+      title: liveData.personal.title,
+      skillsCount: liveData.skills?.length || 0,
+      experienceCount: liveData.experience?.length || 0
     });
 
-    const result = atsService.analyze(currentResumeData);
+    const result = atsService.analyze(liveData);
     
     logger.debug('ATS Result:', {
       score: result.score,
@@ -418,9 +447,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Build a filesystem-friendly name for downloads.
+ */
+function slugify(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'resume'
+  );
+}
+
+/**
  * Show a toast notification
  */
-function showNotification(message: string, type: 'success' | 'error' = 'success'): void {
+const NOTIFICATION_COLORS: Record<'success' | 'error' | 'info', string> = {
+  success: '#4CAF50',
+  error: '#f44336',
+  info: '#2f6fd0'
+};
+
+function showNotification(
+  message: string,
+  type: 'success' | 'error' | 'info' = 'success'
+): void {
   // Remove existing notification if any
   const existing = document.getElementById('toast-notification');
   if (existing) existing.remove();
@@ -432,7 +482,7 @@ function showNotification(message: string, type: 'success' | 'error' = 'success'
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: ${type === 'success' ? '#4CAF50' : '#f44336'};
+    background: ${NOTIFICATION_COLORS[type]};
     color: white;
     padding: 12px 24px;
     border-radius: 8px;
@@ -443,11 +493,13 @@ function showNotification(message: string, type: 'success' | 'error' = 'success'
   `;
   document.body.appendChild(toast);
 
+  // Guidance takes longer to read than a "done" confirmation.
+  const visibleFor = type === 'info' ? 7000 : 3000;
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transition = 'opacity 0.3s';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, visibleFor);
 }
 
 /**

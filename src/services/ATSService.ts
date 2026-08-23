@@ -122,6 +122,12 @@ function collectResumeText(data: ResumeData): string {
     parts.push(edu.period || '');
     parts.push(...(edu.description || []));
   }
+  for (const project of data.projects || []) {
+    parts.push(project.role || '');
+    parts.push(project.institution || '');
+    parts.push(project.period || '');
+    parts.push(...(project.description || []));
+  }
   return parts.join(' ');
 }
 
@@ -194,6 +200,9 @@ function hasContactInformation(data: ResumeData): boolean {
 }
 
 function hasProjectEvidence(data: ResumeData): boolean {
+  // A populated projects section is direct evidence; no need to guess.
+  if (data.projects?.length) return true;
+
   const text = collectResumeText(data).toLowerCase();
   return /project|portfolio|capstone|prototype|research|study|coursework|user research|usability/.test(text);
 }
@@ -422,12 +431,22 @@ export class ATSService {
           : 'Experience section present',
         category: 'structure'
       });
+    } else if (hasProjects) {
+      // Projects are real, verifiable work and should not score as an empty
+      // resume - but they are not employment either, and most postings screen
+      // on employment history. Half credit, plus a clear next step.
+      score += maxPerSection / 2;
+      issues.push({
+        type: 'warning',
+        message: 'Projects are listed but work experience is missing. Add roles to the Experience section',
+        category: 'structure'
+      });
     } else {
-      if (!hasProjects) {
-        issues.push({ type: 'error', message: 'No projects found', category: 'structure' });
-      } else {
-        issues.push({ type: 'error', message: 'Experience or project section is missing', category: 'structure' });
-      }
+      issues.push({
+        type: 'error',
+        message: 'No experience or projects listed',
+        category: 'structure'
+      });
     }
 
     const hasSkills = !!(data.skills && data.skills.length > 0);
@@ -442,6 +461,14 @@ export class ATSService {
     if (hasEducation) {
       score += maxPerSection;
       issues.push({ type: 'success', message: 'Education section present', category: 'structure' });
+    } else {
+      // Silently scoring zero here left the user guessing which section to
+      // fill in, which matters now that the GitHub import never invents one.
+      issues.push({
+        type: 'warning',
+        message: 'Education section is empty. Add your degree or courses',
+        category: 'structure'
+      });
     }
 
     return Math.min(100, score);
@@ -662,7 +689,8 @@ export class ATSService {
     // --- Quantifiable achievements ---
     const allDescriptions = [
       ...(data.experience || []).flatMap(e => e.description || []),
-      ...(data.education || []).flatMap(e => e.description || [])
+      ...(data.education || []).flatMap(e => e.description || []),
+      ...(data.projects || []).flatMap(e => e.description || [])
     ];
     const quantCount = countQuantifiableAchievements(allDescriptions);
     const totalDesc = allDescriptions.length;
@@ -717,9 +745,13 @@ export class ATSService {
   }
 
   private checkDates(data: ResumeData, issues: ATSIssue[]): number {
+    // Projects count as dated entries too. A GitHub-imported resume can be
+    // all projects and no employment yet, and skipping them here would make
+    // the whole date check silently return a free 100.
     const allEntities = [
       ...(data.experience || []),
-      ...(data.education || [])
+      ...(data.education || []),
+      ...(data.projects || [])
     ];
     const totalWithDates = allEntities.filter(e => e.period && e.period.trim().length > 0).length;
     const totalMissing = allEntities.length - totalWithDates;
@@ -762,7 +794,8 @@ export class ATSService {
 
     const parsedExperience = parsePeriods(data.experience || []);
     const parsedEducation = parsePeriods(data.education || []);
-    const parsed = [...parsedExperience, ...parsedEducation];
+    const parsedProjects = parsePeriods(data.projects || []);
+    const parsed = [...parsedExperience, ...parsedEducation, ...parsedProjects];
 
     // Check for inconsistent format patterns
     const formats = new Set<string>();
@@ -786,7 +819,11 @@ export class ATSService {
     // Check for chronological gaps.
     // Walk newest-first: a gap is the distance between an older entry's end
     // year and the start year of the next, more recent entry.
-    const byRecency = [...parsed].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
+    // Only real employment and education can leave a gap in a career history.
+    // Side projects start and stop whenever, so a quiet year between two of
+    // them is not something a recruiter would ask about.
+    const timeline = [...parsedExperience, ...parsedEducation];
+    const byRecency = [...timeline].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
     let gapIssues = 0;
     for (let i = 0; i < byRecency.length - 1; i++) {
       const newer = byRecency[i];
@@ -828,7 +865,10 @@ export class ATSService {
       }
       return false;
     };
-    const outOfOrder = isOutOfOrder(parsedExperience) || isOutOfOrder(parsedEducation);
+    const outOfOrder =
+      isOutOfOrder(parsedExperience) ||
+      isOutOfOrder(parsedEducation) ||
+      isOutOfOrder(parsedProjects);
     if (outOfOrder) {
       score -= 20;
       issues.push({

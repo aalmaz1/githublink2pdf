@@ -140,7 +140,7 @@ describe('ATSService', () => {
   });
 
   describe('missing projects/experience', () => {
-    it('should report no projects found as error', () => {
+    it('should report an error when neither experience nor projects exist', () => {
       const resumeWithoutProjects: ResumeData = {
         ...createFullResume(),
         experience: []
@@ -148,9 +148,50 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutProjects);
 
-      expect(result.issues.some(i => i.message === 'No projects found')).toBe(true);
-      // Verify the error issue type is present
+      expect(
+        result.issues.some(i => i.message === 'No experience or projects listed')
+      ).toBe(true);
       expect(result.issues.some(i => i.type === 'error')).toBe(true);
+    });
+
+    it('should credit projects but still ask for work experience', () => {
+      // A self-taught developer: no job, no degree, only shipped code.
+      const noEvidence: ResumeData = {
+        personal: {
+          name: 'Jane Roe',
+          title: 'Builds data tooling for small teams',
+          email: 'jane@example.com',
+          phone: '+1-234-567-8900',
+          location: 'Berlin, DE',
+          github: 'github.com/janeroe'
+        },
+        education: [],
+        experience: [],
+        skills: [{ category: 'Languages', items: ['TypeScript', 'Python'] }]
+      };
+      const withProjects: ResumeData = {
+        ...noEvidence,
+        projects: [
+          {
+            institution: 'Personal / Open Source',
+            role: 'Analytics Toolkit',
+            period: '2021 — 2023',
+            description: ['Processed 2M records per run using Python and SQL.']
+          }
+        ]
+      };
+
+      const result = atsService.analyze(withProjects);
+
+      expect(
+        result.issues.some(i =>
+          i.message.includes('Projects are listed but work experience is missing')
+        )
+      ).toBe(true);
+      // Verifiable project work must score better than an empty resume...
+      expect(result.score).toBeGreaterThan(atsService.analyze(noEvidence).score);
+      // ...but must not be treated as equal to real employment.
+      expect(result.score).toBeLessThan(atsService.analyze(createFullResume()).score);
     });
   });
 

@@ -1354,6 +1354,45 @@ input[type="text"]:focus {
   padding-left: calc(var(--padding-unit) * 0.5);
 }
 
+/* --- Placeholders for empty Experience / Education -----------------------
+ * The GitHub import leaves real employment and education blank rather than
+ * inventing it, so those sections render one empty entry to type into. The
+ * hint text is drawn from a data attribute via ::before, which keeps it out
+ * of textContent: the editor never reads it back and it never reaches the
+ * exported PDF. It disappears as soon as the field has any content.
+ */
+.section-empty > h3 {
+  opacity: 0.55;
+}
+
+[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  font-style: italic;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+/* A blank entry should not look like a real one until it is filled in. */
+[data-placeholder-entity] {
+  opacity: 0.75;
+}
+
+[data-placeholder-entity]:focus-within {
+  opacity: 1;
+}
+
+@media print {
+  /* Never print an entry the user left untouched. */
+  [data-placeholder]:empty::before {
+    content: none;
+  }
+
+  .section-empty {
+    display: none;
+  }
+}
+
 .layout-line {
   display: flex;
   align-items: baseline;
@@ -1499,42 +1538,6 @@ li {
     widows: 2;
     margin-top: 0;
   }
-}
-
-/* ==========================================================================
-   PDF Export Styles - for html2pdf.js export
-   These styles ensure proper page breaks when exporting to PDF
-   ========================================================================== */
-.pdf-export-mode #resume-container {
-  width: 210mm !important;
-  max-width: 210mm !important;
-}
-
-.pdf-export-mode .resume-header,
-.pdf-export-mode .positioned-block.entity-item,
-.pdf-export-mode .positioned-block.section-block {
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
-}
-
-.pdf-export-mode h1,
-.pdf-export-mode h2,
-.pdf-export-mode h3,
-.pdf-export-mode p,
-.pdf-export-mode ul,
-.pdf-export-mode li {
-  orphans: 2 !important;
-  widows: 2 !important;
-}
-
-.pdf-export-mode p,
-.pdf-export-mode li {
-  line-height: 1.5 !important;
-  text-align: justify !important;
-  hyphens: auto !important;
-  -webkit-hyphens: auto !important;
-  -ms-hyphens: auto !important;
 }
 
 /* ==========================================================================

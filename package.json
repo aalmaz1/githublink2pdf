@@ -16,8 +16,7 @@
     "coverage": "vitest run --coverage --coverage.reporter=json-summary --coverage.reporter=text"
   },
   "dependencies": {
-    "html2canvas": "^1.4.1",
-    "html2pdf.js": "^0.10.2"
+    "jspdf": "^3.0.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
