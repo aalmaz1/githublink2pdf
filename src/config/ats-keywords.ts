@@ -98,21 +98,25 @@ export const SYNONYM_MAP: Record<string, string[]> = {
 
 /**
  * Regular expressions to detect quantifiable achievements in text.
+ *
+ * Two rules keep this list honest:
+ *
+ * 1. No `g` flag. A global regex keeps `lastIndex` between calls, so reusing
+ *    one of these shared objects with `.test()` across many bullet points
+ *    silently skips every other match and undercounts the result.
+ * 2. Every pattern requires an actual digit. "Improved performance" is a
+ *    claim, not a measurement, and counting it as quantified told users they
+ *    had metrics when they had none.
  */
 export const QUANTIFIABLE_PATTERNS = [
-  /\d+%/g,                       // "40%", "100%"
-  /\d+x/g,                       // "2x", "5x"
-  /\$\d+[kKmMbB]?/g,             // "$10k", "$5M"
-  /\d+[kKmMbB]/g,                // "10k users", "5M requests"
-  /increased?|decreased?|reduced?/gi,
-  /improved?|optimized?|accelerated?/gi,
-  /by \d+/gi,                    // "by 40%"
-  /over \d+/gi,                  // "over 2000 users"
-  /more than \d+/gi,             // "more than 500"
-  /\d+ (percent|users|customers|clients|requests|queries|ms|seconds|hours|days|times)/gi,
-  /top \d+/gi,                   // "top 10"
-  /\d+ (countries|cities|teams|repositories|commits|projects)/gi,
-  /led a team of \d+/gi,
-  /managed \d+/gi,
-  // "managed 25 engineers"
+  /\d+(\.\d+)?\s*%/,                                    // "40%", "99.9 %"
+  /\b\d+(\.\d+)?\s*x\b/i,                               // "2x", "1.5x"
+  /[$€£¥]\s?\d/,                                        // "$10k", "€5M"
+  /\b\d+(\.\d+)?\s*[kmb]\b/i,                           // "10k users", "5M requests"
+  /\b(increased|decreased|reduced|improved|optimized|accelerated|grew|cut|saved|boosted)\b[^.]{0,40}\d/i,
+  /\bby\s+\d/i,                                         // "by 40%"
+  /\b(over|under|more than|less than|up to|at least|around|approximately)\s+\d/i,
+  /\btop\s+\d/i,                                        // "top 10"
+  /\b(led|managed|mentored|trained|supervised|coordinated)\s+(a\s+)?(team\s+of\s+)?\d/i,
+  /\b\d+\s*\+?\s*(percent|users|customers|clients|requests|queries|ms|milliseconds|seconds|minutes|hours|days|weeks|months|years|times|engineers|developers|people|members|countries|cities|teams|repositories|commits|projects|releases|tickets|stars|forks)\b/i
 ];

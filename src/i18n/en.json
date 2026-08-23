@@ -2,6 +2,15 @@
   "common": {
     "education": "Education",
     "experience": "Experience",
-    "skills": "Skills"
+    "skills": "Skills",
+    "projects": "Projects"
+  },
+  "placeholders": {
+    "jobTitle": "Job title",
+    "company": "Company",
+    "degree": "Degree",
+    "school": "School",
+    "period": "e.g. 2021 — Present",
+    "achievement": "What you did and what it achieved"
   }
 }

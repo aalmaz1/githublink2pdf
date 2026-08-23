@@ -2,166 +2,103 @@ import { ResumeData, TimeBoundedEntity, SkillCategory } from './types';
 import { githubCache } from './utils/github-cache';
 
 /**
- * AI-powered description generator based on repository metadata
+ * Turns raw repository metadata into resume bullet points.
+ *
+ * Everything produced here must be checkable against the GitHub page it came
+ * from. An earlier version invented praise ("demonstrating community impact",
+ * "emphasizing code quality and maintainability") from nothing but a repo
+ * name, which is exactly the kind of claim a candidate cannot defend in an
+ * interview. Only facts the API actually returns are emitted now.
  */
-class GitHubAIGenerator {
-  private actionVerbs = [
-    'Architected', 'Engineered', 'Developed', 'Built', 'Created', 
-    'Designed', 'Implemented', 'Launched', 'Optimized', 'Revolutionized'
-  ];
-
-  private projectTypes: Record<string, string[]> = {
-    'game': ['gaming experience', 'interactive entertainment', 'game mechanics'],
-    'app': ['application', 'user-centric solution', 'mobile experience'],
-    'tool': ['developer tool', 'productivity enhancer', 'utility'],
-    'web': ['web platform', 'digital experience', 'online service'],
-    'bot': ['automation bot', 'intelligent assistant', 'automated system'],
-    'api': ['API service', 'backend infrastructure', 'integration layer'],
-    'ui': ['user interface', 'design system', 'visual component'],
-    'data': ['data processing', 'analytics solution', 'information system']
-  };
-
-  private techDescriptions: Record<string, string> = {
-    'JavaScript': 'leveraging modern JavaScript ES6+ features',
-    'TypeScript': 'with type-safe TypeScript architecture',
-    'Python': 'utilizing Python\'s powerful ecosystem',
-    'Dart': 'using Dart for cross-platform performance',
-    'Kotlin': 'with Kotlin for modern Android development',
-    'HTML': 'focusing on semantic HTML5 structure',
-    'CSS': 'with advanced CSS styling techniques',
-    'React': 'powered by React components',
-    'Vue': 'built with Vue.js framework',
-    'Angular': 'using Angular framework',
-    'Node.js': 'with Node.js backend',
-    'Flutter': 'cross-platform with Flutter'
-  };
-
+class GitHubProjectFormatter {
   /**
-   * Detects project type from repo name and topics
+   * Builds the bullet list for one repository: its own description first,
+   * then the measurable facts GitHub publishes about it.
    */
-  detectProjectType(name: string, topics: string[]): string {
-    const lowerName = name.toLowerCase();
-    const lowerTopics = topics.map(t => t.toLowerCase());
-    
-    for (const [type, keywords] of Object.entries(this.projectTypes)) {
-      if (lowerName.includes(type) || lowerTopics.some(t => keywords.some(k => t.includes(k)))) {
-        return type;
-      }
+  buildBullets(repo: any): string[] {
+    const bullets: string[] = [];
+
+    const ownDescription = typeof repo.description === 'string' ? repo.description.trim() : '';
+    if (ownDescription.length > 0) {
+      bullets.push(ownDescription);
     }
-    
-    // Default based on common patterns
-    if (lowerName.includes('pixel') || lowerName.includes('word')) return 'game';
-    if (lowerName.includes('app')) return 'app';
-    if (lowerName.includes('bot')) return 'bot';
-    
-    return 'web';
+
+    const stars = Number(repo.stargazers_count) || 0;
+    const forks = Number(repo.forks_count) || 0;
+    const traction: string[] = [];
+    if (stars > 0) {
+      traction.push(`${stars} ${stars === 1 ? 'star' : 'stars'}`);
+    }
+    if (forks > 0) {
+      traction.push(`${forks} ${forks === 1 ? 'fork' : 'forks'}`);
+    }
+    if (traction.length > 0) {
+      bullets.push(`${traction.join(', ')} on GitHub.`);
+    }
+
+    const stack = this.buildStack(repo);
+    if (stack.length > 0) {
+      bullets.push(`Tech stack: ${stack.join(', ')}.`);
+    }
+
+    const homepage = typeof repo.homepage === 'string' ? repo.homepage.trim() : '';
+    if (homepage.length > 0) {
+      bullets.push(`Live demo: ${homepage.replace(/^https?:\/\//, '')}`);
+    }
+
+    return bullets;
   }
 
   /**
-   * Generates a unique achievement statement based on stars and forks
+   * The languages and topics GitHub reports for a repository, de-duplicated
+   * and in a stable order.
    */
-  generateAchievement(stars: number, forks: number): string {
-    if (stars === 0 && forks === 0) {
-      return 'Initiated an open-source project to showcase technical capabilities.';
-    } else if (stars > 10 || forks > 5) {
-      return `Built and maintained a popular open-source project with ${stars} stars and ${forks} forks, demonstrating community impact.`;
-    } else if (stars > 0) {
-      return `Developed an open-source solution that gained ${stars} stars through quality implementation.`;
-    } else {
-      return `Created a specialized tool adopted by ${forks} developers through forks.`;
-    }
+  private buildStack(repo: any): string[] {
+    const topics: string[] = Array.isArray(repo.topics) ? repo.topics.filter(Boolean) : [];
+    const language = typeof repo.language === 'string' && repo.language.trim().length > 0
+      ? repo.language.trim()
+      : null;
+
+    const stack = language ? [language, ...topics] : [...topics];
+    return Array.from(new Set(stack));
   }
 
   /**
-   * Generates professional description based on repo metadata
+   * Skills are aggregated from the languages and topics GitHub records for
+   * the user's own repositories - never guessed from prose.
    */
-  generateDescription(
-    repoName: string,
-    description: string | null,
-    language: string | null,
-    topics: string[],
-    readmeContent: string | null
-  ): string {
-    const projectType = this.detectProjectType(repoName, topics);
-    const projectConcept = this.projectTypes[projectType]?.[0] || 'software solution';
-    
-    // Extract keywords from README if available
-    let readmeKeywords: string[] = [];
-    if (readmeContent) {
-      const words = readmeContent.split(/\s+/).filter(w => w.length > 4);
-      const importantWords = words.filter(w => 
-        ['performance', 'fast', 'efficient', 'modern', 'clean', 'modular', 
-         'responsive', 'scalable', 'secure', 'intuitive'].some(k => w.toLowerCase().includes(k))
-      );
-      readmeKeywords = [...new Set(importantWords)].slice(0, 3);
-    }
+  generateSkills(repos: any[]): (string | SkillCategory)[] {
+    const languages = this.countByFrequency(
+      repos
+        .map(r => (typeof r.language === 'string' ? r.language.trim() : ''))
+        .filter(lang => lang.length > 0)
+    );
 
-    // Choose action verb based on project characteristics
-    const verbIndex = (repoName.length + (topics.length * 2)) % this.actionVerbs.length;
-    const actionVerb = this.actionVerbs[verbIndex];
-    
-    // Build tech stack description
-    const techDesc = language ? (this.techDescriptions[language] || `using ${language}`) : 'with modern engineering practices';
-    
-    // Generate base description
-    const baseDescriptions = [
-      `${actionVerb} a ${projectConcept} ${techDesc}, emphasizing code quality and maintainability.`,
-      `${actionVerb} ${projectConcept} ${techDesc} with focus on user experience and performance optimization.`,
-      `${actionVerb} innovative ${projectConcept} ${techDesc}, incorporating best practices in software architecture.`
-    ];
-    
-    // Add README-based enhancements
-    if (readmeKeywords.length > 0) {
-      const keywordPhrase = readmeKeywords.join(', ');
-      return `${baseDescriptions[0]} Key features include ${keywordPhrase}.`;
+    const topics = this.countByFrequency(
+      repos.flatMap(r => (Array.isArray(r.topics) ? r.topics : []))
+        .map((t: unknown) => (typeof t === 'string' ? t.trim() : ''))
+        .filter((t: string) => t.length > 0)
+    );
+
+    const categories: SkillCategory[] = [];
+    if (languages.length > 0) {
+      categories.push({ category: 'Languages', items: languages.slice(0, 8) });
     }
-    
-    // Add topic-based enhancements
     if (topics.length > 0) {
-      const topTopics = topics.slice(0, 3).join(', ');
-      return `${actionVerb} a ${projectConcept} ${techDesc}, featuring ${topTopics}.`;
+      categories.push({ category: 'Technologies & Topics', items: topics.slice(0, 10) });
     }
-    
-    // Fallback to original description or generated one
-    if (description && description.trim().length > 10) {
-      return description;
-    }
-    
-    return baseDescriptions[Math.floor(Math.random() * baseDescriptions.length)];
+    return categories;
   }
 
-  /**
-   * Generates skills section based on all repositories
-   */
-  generateSkills(repos: any[], readmeContent: string | null): (string | SkillCategory)[] {
-    const languages = Array.from(new Set(repos.map(r => r.language).filter(Boolean))) as string[];
-    const allTopics = repos.flatMap(r => r.topics || []);
-    const uniqueTopics = Array.from(new Set(allTopics));
-    
-    // Extract additional skills from README
-    let readmeSkills: string[] = [];
-    if (readmeContent) {
-      const skillPatterns = [
-        /react/gi, /vue/gi, /angular/gi, /node/gi, /express/gi,
-        /mongodb/gi, /postgresql/gi, /mysql/gi, /docker/gi, /kubernetes/gi,
-        /aws/gi, /azure/gi, /gcp/gi, /git/gi, /ci\/cd/gi,
-        /rest/gi, /graphql/gi, /api/gi, /microservices/gi
-      ];
-      
-      skillPatterns.forEach(pattern => {
-        const matches = readmeContent.match(pattern);
-        if (matches && matches.length > 0) {
-          readmeSkills.push(matches[0].toUpperCase());
-        }
-      });
+  /** Orders values by how often they appear, most used first. */
+  private countByFrequency(values: string[]): string[] {
+    const counts = new Map<string, number>();
+    for (const value of values) {
+      counts.set(value, (counts.get(value) || 0) + 1);
     }
-    
-    const combinedTopics = [...uniqueTopics, ...readmeSkills].filter(Boolean);
-    
-    return [
-      { category: 'Languages', items: languages.slice(0, 8) },
-      { category: 'Frameworks & Tools', items: combinedTopics.slice(0, 10) }
-    ];
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([value]) => value);
   }
 }
 
@@ -239,7 +176,7 @@ export function isValidUsername(username: string): boolean {
   return githubUsernamePattern.test(username);
 }
 
-const aiGenerator = new GitHubAIGenerator();
+const projectFormatter = new GitHubProjectFormatter();
 
 export async function fetchGitHubResumeData(input: string): Promise<ResumeData> {
   // Extract and validate username from various input formats
@@ -269,45 +206,27 @@ export async function fetchGitHubResumeData(input: string): Promise<ResumeData> 
       fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=30`, { headers })
     ]);
     
-    if (!userRes.ok) throw new Error('User not found');
+    if (!userRes.ok) {
+      // 403/429 mean the unauthenticated rate limit was hit, which is a very
+      // different problem from a typo in the username — don't conflate them.
+      if (userRes.status === 403 || userRes.status === 429) {
+        throw new Error('GitHub API rate limit reached. Please try again later.');
+      }
+      throw new Error('User not found');
+    }
     profile = await userRes.json();
-    allRepos = await reposRes.json() as any[];
+
+    // A failed repo request returns an error object, not an array; guard the
+    // shape so downstream array operations cannot throw.
+    const reposJson = reposRes.ok ? await reposRes.json() : null;
+    allRepos = Array.isArray(reposJson) ? reposJson : [];
     
     // Cache the results
     githubCache.set(userCacheKey, profile);
     githubCache.set(reposCacheKey, allRepos);
   }
   
-  // 2. Fetch README from the most popular repo (or a repo named after the user)
-  let readmeContent: string | undefined;
-  const sortedRepos = [...allRepos].sort((a, b) => b.stargazers_count - a.stargazers_count);
-  
-  // Try to find README in top repos
-  for (const repo of sortedRepos.slice(0, 5)) {
-    try {
-      const readmeRes = await fetch(`https://api.github.com/repos/${username}/${repo.name}/readme`, { headers });
-      if (readmeRes.ok) {
-        const readmeData = await readmeRes.json();
-        // GitHub API returns README content base64 encoded
-        if (readmeData.content) {
-          // Правильное декодирование Base64 в UTF-8 для поддержки всех языков (корейский, эмодзи и т.д.)
-          const binaryString = window.atob(readmeData.content);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const decoder = new TextDecoder('utf-8');
-          readmeContent = decoder.decode(bytes);
-          break;
-        }
-      }
-    } catch (e) {
-      // Continue to next repo if this one fails
-      continue;
-    }
-  }
-  
-  // 2. Filter and Sort Repos (Top 10 by impact: stars + forks)
+  // 2. Keep the user's own repositories, most-starred first.
   const topRepos = allRepos
     .filter(repo => !repo.fork)
     .sort((a, b) => (b.stargazers_count + b.forks_count) - (a.stargazers_count + a.forks_count))
@@ -315,86 +234,65 @@ export async function fetchGitHubResumeData(input: string): Promise<ResumeData> 
   
   const currentYear = new Date().getFullYear();
   
-  // 3. Map Repos to Professional Experience with AI-generated descriptions
-  const experience: TimeBoundedEntity[] = topRepos.map(repo => {
-    const bullets: string[] = [];
-    
-    // AI-generated achievement based on metrics
-    const achievement = aiGenerator.generateAchievement(repo.stargazers_count, repo.forks_count);
-    bullets.push(achievement);
-    
-    // AI-generated technical description
-    const smartDescription = aiGenerator.generateDescription(
-      repo.name,
-      repo.description,
-      repo.language,
-      repo.topics || [],
-      readmeContent || null
-    );
-    bullets.push(smartDescription);
-    
-    // Tech Stack & Metadata
-    if (repo.topics && repo.topics.length > 0) {
-      bullets.push(`Key Technologies: ${repo.topics.join(', ')}`);
-    } else {
-      bullets.push(`Primary Stack: ${repo.language || 'Software Engineering'}`);
-    }
-    
-    // Links (Live Demo or Repo)
-    if (repo.homepage) {
-      bullets.push(`Live Demo: ${repo.homepage.replace(/^https?:\/\//, '')}`);
-    }
-    
-    // Умное форматирование дат
+  // 3. Map each repository to a project entry built only from API facts.
+  const projects: TimeBoundedEntity[] = topRepos.map(repo => {
+    const bullets = projectFormatter.buildBullets(repo);
+
+    // Activity window, taken from the repository's own timestamps.
     const startYear = new Date(repo.created_at).getFullYear();
     const endYear = new Date(repo.updated_at).getFullYear();
     let period: string;
     
     if (startYear === endYear) {
-      // Если годы одинаковые, показываем только один год
+      // Created and last touched in the same year: show a single year.
       period = `${startYear}`;
     } else if (endYear > currentYear) {
-      // Если конец даты в будущем (невозможно), ограничиваем текущим годом
+      // Guard against clock-skewed timestamps in the future.
       period = `${startYear} — ${currentYear}`;
     } else {
-      // Обычный случай: диапазон годов
+      // Normal case: a range of years.
       period = `${startYear} — ${endYear}`;
     }
     
     return {
-      institution: 'GitHub Open Source',
+      // Repositories are personal/open-source work, not employment. They are
+      // returned as projects so the resume never implies a job that did not
+      // happen; `institution` names the actual host of the code.
+      institution: 'Personal / Open Source',
       role: formatRepoName(repo.name),
       period: period,
       description: bullets
     };
   });
   
-  // 4. Synthesize Skills Section with AI enhancement
-  const skills = aiGenerator.generateSkills(allRepos, readmeContent || null);
+  // 4. Aggregate skills from the languages and topics GitHub reports.
+  const skills = projectFormatter.generateSkills(allRepos.filter(repo => !repo.fork));
   
   // 5. Build Final Resume Object
+  //
+  // Only facts that GitHub actually exposes are filled in. Employment history
+  // and education are left empty for the user to type in: inventing them
+  // would put false claims in front of a recruiter. The UI flags the empty
+  // sections instead.
   return {
     personal: {
       name: profile.name || profile.login,
-      title: profile.bio ? profile.bio.split('.')[0] : 'Software Engineer',
-      email: profile.email || `${profile.login}@github.com`,
-      phone: 'Available upon request',
-      location: profile.location || 'Remote / Global',
+      // The bio is the only self-description GitHub has. Guessing
+      // "Software Engineer" for someone who never claimed it is a fabrication,
+      // so an absent bio leaves the headline for the user to fill in.
+      title: profile.bio ? profile.bio.split('.')[0].trim() : '',
+      // A public email is often absent; `login@github.com` is not a real
+      // mailbox, so leave it blank rather than shipping an address that
+      // silently drops recruiter replies.
+      email: profile.email || '',
+      phone: '',
+      location: profile.location || '',
       github: profile.html_url,
       linkedin: profile.blog && profile.blog.includes('linkedin') ? profile.blog : undefined
     },
-    experience,
-    education: [
-      {
-        institution: 'GitHub Contributions',
-        role: `Active Developer since ${new Date(profile.created_at).getFullYear()}`,
-        period: `${profile.public_repos} Public Repositories`,
-        description: [
-          `Accumulated ${allRepos.reduce((acc, r) => acc + r.stargazers_count, 0)} total stars across all projects.`,
-          `Continuous integration and contribution to the global developer ecosystem.`
-        ]
-      }
-    ],
+    experience: [],
+    education: [],
+    projects,
     skills
   };
 }

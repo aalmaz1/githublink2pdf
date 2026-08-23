@@ -1,5 +1,5 @@
 import { ATSResult, ATSIssue, ATSScoreBreakdown, ResumeProfile } from '../types/ats';
-import { ResumeData } from '../types';
+import { ResumeData, TimeBoundedEntity } from '../types';
 import {
   ACTION_VERBS,
   MANAGEMENT_KEYWORDS,
@@ -33,53 +33,53 @@ interface ProfileWeights {
 const PROFILE_WEIGHTS: Record<ResumeProfile, ProfileWeights> = {
   technical: {
     structure: 0.15,
-    keywords: 0.30,
+    keywords: 0.26,
     contacts: 0.15,
-    format: 0.12,
-    dates: 0.08,
+    format: 0.10,
+    dates: 0.07,
     experience: 0.15,
-    education: 0.05,
-    summary: 0
+    education: 0.04,
+    summary: 0.08
   },
   student: {
     structure: 0.10,
-    keywords: 0.20,
+    keywords: 0.18,
     contacts: 0.15,
-    format: 0.10,
+    format: 0.09,
     dates: 0.05,
     experience: 0.10,
-    education: 0.30,
-    summary: 0
+    education: 0.27,
+    summary: 0.06
   },
   management: {
-    structure: 0.18,
-    keywords: 0.18,
+    structure: 0.17,
+    keywords: 0.16,
     contacts: 0.15,
-    format: 0.15,
-    dates: 0.08,
+    format: 0.13,
+    dates: 0.07,
     experience: 0.16,
-    education: 0.10,
-    summary: 0
+    education: 0.08,
+    summary: 0.08
   },
   design: {
-    structure: 0.15,
-    keywords: 0.25,
+    structure: 0.14,
+    keywords: 0.23,
     contacts: 0.15,
-    format: 0.18,
-    dates: 0.07,
+    format: 0.16,
+    dates: 0.06,
     experience: 0.12,
-    education: 0.08,
-    summary: 0
+    education: 0.06,
+    summary: 0.08
   },
   other: {
-    structure: 0.18,
-    keywords: 0.18,
+    structure: 0.17,
+    keywords: 0.16,
     contacts: 0.15,
-    format: 0.18,
+    format: 0.16,
     dates: 0.08,
     experience: 0.13,
-    education: 0.10,
-    summary: 0
+    education: 0.07,
+    summary: 0.08
   }
 };
 
@@ -92,9 +92,40 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 
+/**
+ * Substring matching produced silent false positives all over the scoring:
+ * "settled" contains "led", "going" contains "go", "available" contains "ai",
+ * and "restaurant" contains "rest". A chef's resume was scoring technical
+ * keyword hits. Terms must match as whole words instead.
+ *
+ * A plain `\b` is not enough because many keywords end or start with
+ * punctuation ("c++", "c#", ".net", "ci/cd"), where `\b` behaves
+ * inconsistently. Guards are therefore applied only on the sides where the
+ * term actually begins or ends with an alphanumeric character.
+ */
+const termMatcherCache = new Map<string, RegExp>();
+
+function buildTermMatcher(term: string): RegExp {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /^[a-z0-9]/i.test(term) ? '(?<![a-z0-9])' : '';
+  const suffix = /[a-z0-9]$/i.test(term) ? '(?![a-z0-9])' : '';
+  return new RegExp(`${prefix}${escaped}${suffix}`, 'i');
+}
+
+function containsTerm(text: string, term: string): boolean {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) return false;
+
+  let matcher = termMatcherCache.get(normalized);
+  if (!matcher) {
+    matcher = buildTermMatcher(normalized);
+    termMatcherCache.set(normalized, matcher);
+  }
+  return matcher.test(text);
+}
+
 function hasActionVerbs(text: string): boolean {
-  const lowerText = text.toLowerCase();
-  return ACTION_VERBS.some(verb => lowerText.includes(verb));
+  return ACTION_VERBS.some(verb => containsTerm(text, verb));
 }
 
 function collectResumeText(data: ResumeData): string {
@@ -121,6 +152,12 @@ function collectResumeText(data: ResumeData): string {
     parts.push(edu.institution || '');
     parts.push(edu.period || '');
     parts.push(...(edu.description || []));
+  }
+  for (const project of data.projects || []) {
+    parts.push(project.role || '');
+    parts.push(project.institution || '');
+    parts.push(project.period || '');
+    parts.push(...(project.description || []));
   }
   return parts.join(' ');
 }
@@ -164,9 +201,9 @@ function calculateKeywordMatch(resumeText: string, jobDescription: string | unde
 
   if (jobDescription && jobDescription.trim().length > 0) {
     const lowerJob = jobDescription.toLowerCase();
-    const jobKeywords = lowerKeywords.filter(keyword => lowerJob.includes(keyword));
+    const jobKeywords = lowerKeywords.filter(keyword => containsTerm(lowerJob, keyword));
     const selectedKeywords = jobKeywords.length > 0 ? jobKeywords : lowerKeywords;
-    const found = selectedKeywords.filter(keyword => lowerResume.includes(keyword));
+    const found = selectedKeywords.filter(keyword => containsTerm(lowerResume, keyword));
     return {
       foundKeywords: found,
       missingKeywords: selectedKeywords.filter(keyword => !found.includes(keyword)),
@@ -174,7 +211,7 @@ function calculateKeywordMatch(resumeText: string, jobDescription: string | unde
     };
   }
 
-  const found = lowerKeywords.filter(keyword => lowerResume.includes(keyword));
+  const found = lowerKeywords.filter(keyword => containsTerm(lowerResume, keyword));
   return {
     foundKeywords: found.slice(0, 20),
     missingKeywords: lowerKeywords.filter(keyword => !found.includes(keyword)).slice(0, 10),
@@ -194,6 +231,9 @@ function hasContactInformation(data: ResumeData): boolean {
 }
 
 function hasProjectEvidence(data: ResumeData): boolean {
+  // A populated projects section is direct evidence; no need to guess.
+  if (data.projects?.length) return true;
+
   const text = collectResumeText(data).toLowerCase();
   return /project|portfolio|capstone|prototype|research|study|coursework|user research|usability/.test(text);
 }
@@ -207,7 +247,10 @@ function getKeywordList(profile: ResumeProfile): string[] {
     case 'student':
       return [...EXTENDED_TECH_KEYWORDS, ...DESIGN_KEYWORDS];
     case 'other':
-      return EXTENDED_TECH_KEYWORDS;
+      // "other" is the catch-all for resumes we could not classify, so it must
+      // not be graded purely on software terms - that told a chef to add
+      // technical keywords. Score against the general professional vocabulary.
+      return [...MANAGEMENT_KEYWORDS, ...EXTENDED_TECH_KEYWORDS];
     default:
       return EXTENDED_TECH_KEYWORDS;
   }
@@ -216,18 +259,13 @@ function getKeywordList(profile: ResumeProfile): string[] {
 /**
  * Count descriptions that contain quantifiable achievements (numbers, %, $, etc.)
  */
+function isQuantified(description: string): boolean {
+  return QUANTIFIABLE_PATTERNS.some(pattern => pattern.test(description));
+}
+
 function countQuantifiableAchievements(descriptions: string[]): number {
   if (!descriptions || descriptions.length === 0) return 0;
-  let count = 0;
-  for (const desc of descriptions) {
-    for (const pattern of QUANTIFIABLE_PATTERNS) {
-      if (pattern.test(desc)) {
-        count++;
-        break;
-      }
-    }
-  }
-  return count;
+  return descriptions.filter(isQuantified).length;
 }
 
 /**
@@ -269,7 +307,7 @@ function parsePeriod(period: string): { year: number | null; month: number | nul
  * Check if a period string indicates "Present" or "Current"
  */
 function isPresent(period: string): boolean {
-  return /(present|current|now|ongoing)/i.test(period);
+  return /\b(present|current|now|ongoing)\b/i.test(period);
 }
 
 /**
@@ -280,7 +318,9 @@ function parsePeriodRange(period: string): {
   end: { year: number | null; month: number | null };
   isCurrent: boolean;
 } {
-  const parts = period.split(/[-\u2013\u2014to]+/).map(p => p.trim());
+  // Split on a dash/en dash/em dash or the word "to" — never on the bare
+  // letters "t"/"o", which a character class would match (e.g. "Oct 2020").
+  const parts = period.split(/\s*(?:[-\u2013\u2014]+|\bto\b)\s*/i).map(p => p.trim());
   const start = parts[0] ? parsePeriod(parts[0]) : { year: null, month: null };
   const endPart = parts.length > 1 ? parts[1] : '';
   const isCurrent = isPresent(endPart) || !endPart;
@@ -326,6 +366,7 @@ export class ATSService {
     breakdown.dates.score = this.checkDates(data, issues);
     breakdown.experience.score = this.checkExperienceDetails(data, issues, profile);
     breakdown.education.score = this.checkEducation(data, issues, profile);
+    breakdown.summary.score = this.checkSummary(data, issues, profile);
 
     let totalScore = 0;
     for (const key of Object.keys(breakdown) as Array<keyof typeof breakdown>) {
@@ -420,12 +461,22 @@ export class ATSService {
           : 'Experience section present',
         category: 'structure'
       });
+    } else if (hasProjects) {
+      // Projects are real, verifiable work and should not score as an empty
+      // resume - but they are not employment either, and most postings screen
+      // on employment history. Half credit, plus a clear next step.
+      score += maxPerSection / 2;
+      issues.push({
+        type: 'warning',
+        message: 'Projects are listed but work experience is missing. Add roles to the Experience section',
+        category: 'structure'
+      });
     } else {
-      if (!hasProjects) {
-        issues.push({ type: 'error', message: 'No projects found', category: 'structure' });
-      } else {
-        issues.push({ type: 'error', message: 'Experience or project section is missing', category: 'structure' });
-      }
+      issues.push({
+        type: 'error',
+        message: 'No experience or projects listed',
+        category: 'structure'
+      });
     }
 
     const hasSkills = !!(data.skills && data.skills.length > 0);
@@ -440,6 +491,14 @@ export class ATSService {
     if (hasEducation) {
       score += maxPerSection;
       issues.push({ type: 'success', message: 'Education section present', category: 'structure' });
+    } else {
+      // Silently scoring zero here left the user guessing which section to
+      // fill in, which matters now that the GitHub import never invents one.
+      issues.push({
+        type: 'warning',
+        message: 'Education section is empty. Add your degree or courses',
+        category: 'structure'
+      });
     }
 
     return Math.min(100, score);
@@ -471,7 +530,9 @@ export class ATSService {
       score += 15;
       issues.push({ type: 'success', message: 'LinkedIn is provided', category: 'contacts' });
     } else {
-      issues.push({ type: 'error', message: 'Missing LinkedIn', category: 'contacts' });
+      // Recommended, not required: no ATS rejects a resume for lacking a
+      // LinkedIn URL, so this must not read as a blocking error.
+      issues.push({ type: 'warning', message: 'Missing LinkedIn', category: 'contacts' });
     }
 
     if (data.personal.github && data.personal.github.trim().length > 0) {
@@ -487,7 +548,7 @@ export class ATSService {
     }
 
     if (contactMissing) {
-      issues.push({ type: 'error', message: 'Контактная информация отсутствует', category: 'contacts' });
+      issues.push({ type: 'error', message: 'No contact information found', category: 'contacts' });
       return 0;
     }
 
@@ -516,24 +577,31 @@ export class ATSService {
       }
     } else {
       if (profile === 'management' || profile === 'other') {
+        // The advice has to name the vocabulary this profile is actually
+        // scored against, otherwise the user is asked to add keywords that
+        // earn them nothing.
+        const advice = profile === 'management'
+          ? 'Add leadership, strategy, budget or stakeholder terms'
+          : 'Name the tools, methods and domain terms used in your field';
+
         if (foundCount >= 3) {
           issues.push({
             type: 'success',
-            message: `Strong non-technical keywords present (${foundCount} keywords found)`,
+            message: `Strong keyword coverage (${foundCount} keywords found)`,
             category: 'keywords'
           });
           score = Math.max(score, 80);
         } else if (foundCount >= 1) {
           issues.push({
             type: 'warning',
-            message: `Only ${foundCount} management keywords found. Add leadership, strategy, campaign or stakeholder terms`,
+            message: `Only ${foundCount} relevant keyword${foundCount > 1 ? 's' : ''} found. ${advice}`,
             category: 'keywords'
           });
           score = Math.max(score, 50);
         } else {
           issues.push({
             type: 'warning',
-            message: 'No management keywords found. Add leadership, strategy, budget or campaign terms',
+            message: `No role-relevant keywords found. ${advice}`,
             category: 'keywords'
           });
           score = Math.min(score, 40);
@@ -660,7 +728,8 @@ export class ATSService {
     // --- Quantifiable achievements ---
     const allDescriptions = [
       ...(data.experience || []).flatMap(e => e.description || []),
-      ...(data.education || []).flatMap(e => e.description || [])
+      ...(data.education || []).flatMap(e => e.description || []),
+      ...(data.projects || []).flatMap(e => e.description || [])
     ];
     const quantCount = countQuantifiableAchievements(allDescriptions);
     const totalDesc = allDescriptions.length;
@@ -715,9 +784,13 @@ export class ATSService {
   }
 
   private checkDates(data: ResumeData, issues: ATSIssue[]): number {
+    // Projects count as dated entries too. A GitHub-imported resume can be
+    // all projects and no employment yet, and skipping them here would make
+    // the whole date check silently return a free 100.
     const allEntities = [
       ...(data.experience || []),
-      ...(data.education || [])
+      ...(data.education || []),
+      ...(data.projects || [])
     ];
     const totalWithDates = allEntities.filter(e => e.period && e.period.trim().length > 0).length;
     const totalMissing = allEntities.length - totalWithDates;
@@ -745,23 +818,33 @@ export class ATSService {
       return 100;
     }
 
-    // --- Parse and check chronological order ---
-    const parsed: Array<{ startYear: number | null; endYear: number | null; isCurrent: boolean; period: string }> = [];
-    for (const entity of allEntities) {
-      if (!entity.period || !entity.period.trim()) continue;
-      const { start, end, isCurrent } = parsePeriodRange(entity.period);
-      parsed.push({ startYear: start.year, endYear: end.year, isCurrent, period: entity.period });
-    }
+    // --- Parse periods, preserving the order they appear in on the resume ---
+    type ParsedPeriod = { startYear: number | null; endYear: number | null; isCurrent: boolean; period: string };
 
-    // Sort by start year descending (most recent first)
-    const sorted = [...parsed].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
+    const parsePeriods = (entities: TimeBoundedEntity[]): ParsedPeriod[] => {
+      const result: ParsedPeriod[] = [];
+      for (const entity of entities) {
+        if (!entity.period || !entity.period.trim()) continue;
+        const { start, end, isCurrent } = parsePeriodRange(entity.period);
+        result.push({ startYear: start.year, endYear: end.year, isCurrent, period: entity.period });
+      }
+      return result;
+    };
+
+    const parsedExperience = parsePeriods(data.experience || []);
+    const parsedEducation = parsePeriods(data.education || []);
+    const parsedProjects = parsePeriods(data.projects || []);
+    const parsed = [...parsedExperience, ...parsedEducation, ...parsedProjects];
 
     // Check for inconsistent format patterns
     const formats = new Set<string>();
     for (const p of parsed) {
-      const fmt = p.period.match(/\d{4}/g)?.length ?? 0;
-      const hasMonth = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*/i.test(p.period) || /^\d{1,2}\//.test(p.period);
-      formats.add(fmt === 2 ? 'range' : fmt === 1 ? (hasMonth ? 'month-year' : 'year-only') : 'other');
+      const years = p.period.match(/\d{4}/g)?.length ?? 0;
+      const hasMonth = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b/i.test(p.period) || /^\d{1,2}\//.test(p.period);
+      // "2020 - Present" is a range even though it carries a single year:
+      // an open-ended current role must not be reported as a format mismatch.
+      const isRange = years >= 2 || (years === 1 && p.isCurrent);
+      formats.add(isRange ? 'range' : years === 1 ? (hasMonth ? 'month-year' : 'year-only') : 'other');
     }
     if (formats.size > 1) {
       score -= 15;
@@ -772,13 +855,20 @@ export class ATSService {
       });
     }
 
-    // Check for chronological gaps
+    // Check for chronological gaps.
+    // Walk newest-first: a gap is the distance between an older entry's end
+    // year and the start year of the next, more recent entry.
+    // Only real employment and education can leave a gap in a career history.
+    // Side projects start and stop whenever, so a quiet year between two of
+    // them is not something a recruiter would ask about.
+    const timeline = [...parsedExperience, ...parsedEducation];
+    const byRecency = [...timeline].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
     let gapIssues = 0;
-    for (let i =0; i < sorted.length - 1; i++) {
-      const current = sorted[i];
-      const next = sorted[i + 1];
-      if (current.endYear === null || next.startYear === null) continue;
-      const gap = next.startYear - current.endYear;
+    for (let i = 0; i < byRecency.length - 1; i++) {
+      const newer = byRecency[i];
+      const older = byRecency[i + 1];
+      if (newer.startYear === null || older.endYear === null) continue;
+      const gap = newer.startYear - older.endYear;
       if (gap > 1) {
         gapIssues++;
         if (gapIssues <= 2) {
@@ -800,15 +890,24 @@ export class ATSService {
       });
     }
 
-    // Check for chronological order violations
-    let outOfOrder = false;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i].startYear !== null && sorted[i + 1].startYear !== null &&
-          sorted[i].startYear! < sorted[i + 1].startYear!) {
-        outOfOrder = true;
-        break;
+    // Check for chronological order violations.
+    // This must inspect the order the entries are listed in on the resume;
+    // checking a recency-sorted copy could never fail. Experience and
+    // education are separate sections, so each is validated on its own.
+    const isOutOfOrder = (entries: ParsedPeriod[]): boolean => {
+      for (let i = 0; i < entries.length - 1; i++) {
+        const current = entries[i];
+        const next = entries[i + 1];
+        if (current.startYear === null || next.startYear === null) continue;
+        // A current ("Present") role always belongs at the top.
+        if (current.startYear < next.startYear) return true;
       }
-    }
+      return false;
+    };
+    const outOfOrder =
+      isOutOfOrder(parsedExperience) ||
+      isOutOfOrder(parsedEducation) ||
+      isOutOfOrder(parsedProjects);
     if (outOfOrder) {
       score -= 20;
       issues.push({
@@ -889,10 +988,10 @@ export class ATSService {
       totalDescriptions += descs.length;
       for (const desc of descs) {
         totalWords += countWords(desc);
-        if (ACTION_VERBS.some(v => desc.toLowerCase().includes(v))) {
+        if (hasActionVerbs(desc)) {
           withActionVerbs++;
         }
-        if (QUANTIFIABLE_PATTERNS.some(p => p.test(desc))) {
+        if (isQuantified(desc)) {
           withQuantified++;
         }
       }
@@ -970,6 +1069,77 @@ export class ATSService {
         type: 'warning',
         message: 'Descriptions too verbose (avg ' + Math.round(avgWordsPerDesc) + ' words). Keep concise',
         category: 'experience'
+      });
+    }
+
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * The headline/title is the first thing a recruiter reads and the field the
+   * GitHub import is least able to fill in well (it derives from the bio).
+   * The breakdown has always advertised a "Summary" component to the user, so
+   * it now carries a real, weighted score instead of a permanent zero bar.
+   */
+  private checkSummary(data: ResumeData, issues: ATSIssue[], profile: ResumeProfile): number {
+    const title = (data.personal.title || '').trim();
+
+    if (!title) {
+      issues.push({
+        type: 'error',
+        message: 'Professional headline is empty. Add a title such as "Backend Engineer, Python and Go"',
+        category: 'summary'
+      });
+      return 0;
+    }
+
+    let score = 60;
+    const words = countWords(title);
+
+    if (words < 2) {
+      score -= 25;
+      issues.push({
+        type: 'warning',
+        message: `Headline "${title}" is too vague on its own. Name your role and main specialisation`,
+        category: 'summary'
+      });
+    } else if (words > 30) {
+      score -= 15;
+      issues.push({
+        type: 'warning',
+        message: `Headline is ${words} words long. Trim it to a scannable role statement`,
+        category: 'summary'
+      });
+    } else {
+      issues.push({
+        type: 'success',
+        message: 'Professional headline is present',
+        category: 'summary'
+      });
+    }
+
+    // A headline earns its weight when it repeats the vocabulary the rest of
+    // the resume is scored on, because that is the line recruiters skim.
+    const keywordsInTitle = getKeywordList(profile).filter(keyword => containsTerm(title, keyword));
+    if (keywordsInTitle.length >= 2) {
+      score += 40;
+      issues.push({
+        type: 'success',
+        message: `Headline names relevant skills (${keywordsInTitle.slice(0, 3).join(', ')})`,
+        category: 'summary'
+      });
+    } else if (keywordsInTitle.length === 1) {
+      score += 20;
+      issues.push({
+        type: 'warning',
+        message: `Headline mentions only "${keywordsInTitle[0]}". Add one more core skill to it`,
+        category: 'summary'
+      });
+    } else {
+      issues.push({
+        type: 'warning',
+        message: 'Headline contains no role-specific keywords. Recruiters skim this line first',
+        category: 'summary'
       });
     }
 

@@ -14,6 +14,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 500
   },
   optimizeDeps: {
-    include: ['html2pdf.js', 'html2canvas']
+    include: ['jspdf']
   }
 });

@@ -140,7 +140,7 @@ describe('ATSService', () => {
   });
 
   describe('missing projects/experience', () => {
-    it('should report no projects found as error', () => {
+    it('should report an error when neither experience nor projects exist', () => {
       const resumeWithoutProjects: ResumeData = {
         ...createFullResume(),
         experience: []
@@ -148,9 +148,50 @@ describe('ATSService', () => {
 
       const result = atsService.analyze(resumeWithoutProjects);
 
-      expect(result.issues.some(i => i.message === 'No projects found')).toBe(true);
-      // Verify the error issue type is present
+      expect(
+        result.issues.some(i => i.message === 'No experience or projects listed')
+      ).toBe(true);
       expect(result.issues.some(i => i.type === 'error')).toBe(true);
+    });
+
+    it('should credit projects but still ask for work experience', () => {
+      // A self-taught developer: no job, no degree, only shipped code.
+      const noEvidence: ResumeData = {
+        personal: {
+          name: 'Jane Roe',
+          title: 'Builds data tooling for small teams',
+          email: 'jane@example.com',
+          phone: '+1-234-567-8900',
+          location: 'Berlin, DE',
+          github: 'github.com/janeroe'
+        },
+        education: [],
+        experience: [],
+        skills: [{ category: 'Languages', items: ['TypeScript', 'Python'] }]
+      };
+      const withProjects: ResumeData = {
+        ...noEvidence,
+        projects: [
+          {
+            institution: 'Personal / Open Source',
+            role: 'Analytics Toolkit',
+            period: '2021 — 2023',
+            description: ['Processed 2M records per run using Python and SQL.']
+          }
+        ]
+      };
+
+      const result = atsService.analyze(withProjects);
+
+      expect(
+        result.issues.some(i =>
+          i.message.includes('Projects are listed but work experience is missing')
+        )
+      ).toBe(true);
+      // Verifiable project work must score better than an empty resume...
+      expect(result.score).toBeGreaterThan(atsService.analyze(noEvidence).score);
+      // ...but must not be treated as equal to real employment.
+      expect(result.score).toBeLessThan(atsService.analyze(createFullResume()).score);
     });
   });
 
@@ -394,6 +435,51 @@ describe('ATSService', () => {
     });
   });
 
+  describe('date parsing', () => {
+    const withPeriods = (periods: string[]): ResumeData => ({
+      ...createFullResume(),
+      education: [],
+      experience: periods.map((period, i) => ({
+        institution: 'Company ' + i,
+        role: 'Software Engineer',
+        period,
+        description: [
+          'Developed TypeScript services and React interfaces improving latency by 30 percent'
+        ]
+      }))
+    });
+
+    const dateMessages = (data: ResumeData): string[] =>
+      atsService.analyze(data).issues.filter(i => i.category === 'dates').map(i => i.message);
+
+    it('should treat an open-ended current role as a range, not a format mismatch', () => {
+      const messages = dateMessages(withPeriods(['2020 - Present', '2016 - 2020']));
+      expect(messages.some(m => m.includes('Inconsistent date formats'))).toBe(false);
+    });
+
+    it('should accept "to" as a range separator', () => {
+      const messages = dateMessages(withPeriods(['2016 to 2020', '2012 to 2016']));
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(false);
+      expect(messages.some(m => m.includes('employment gap'))).toBe(false);
+    });
+
+    it('should not split month names containing "t" or "o" (e.g. Oct)', () => {
+      const messages = dateMessages(withPeriods(['Oct 2020 - Present', 'Jan 2016 - Sep 2020']));
+      expect(messages.some(m => m.includes('Inconsistent date formats'))).toBe(false);
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(false);
+    });
+
+    it('should still flag entries listed out of reverse chronological order', () => {
+      const messages = dateMessages(withPeriods(['2012 - 2016', '2016 - 2020']));
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(true);
+    });
+
+    it('should still flag a real employment gap', () => {
+      const messages = dateMessages(withPeriods(['2020 - 2022', '2012 - 2015']));
+      expect(messages.some(m => m.includes('employment gap'))).toBe(true);
+    });
+  });
+
   describe('issue message text', () => {
     it('should not embed status emoji in messages (status icon is rendered separately)', () => {
       const statusEmojiPattern = /^[✅✔️✓⚠️⚠❗❌✖️×💡]\s*/;
@@ -407,6 +493,204 @@ describe('ATSService', () => {
         expect(result.issues.length).toBeGreaterThan(0);
         for (const issue of result.issues) {
           expect(statusEmojiPattern.test(issue.message)).toBe(false);
+        }
+      }
+    });
+  });
+  describe('whole-word keyword matching', () => {
+    it('should not count technical keywords hidden inside unrelated words', () => {
+      // "restaurant" contains "rest", "going" contains "go",
+      // "available" contains "ai". Substring matching scored a chef as a
+      // technical candidate.
+      const chef: ResumeData = {
+        personal: {
+          name: 'Maria Gonzalez',
+          title: 'Pastry Chef',
+          email: 'maria@example.com',
+          phone: '+34 600 000 000',
+          location: 'Lyon',
+          github: '',
+          linkedin: ''
+        },
+        education: [],
+        experience: [{
+          institution: 'Michelin restaurant',
+          role: 'Pastry Chef',
+          period: '2019 - 2024',
+          description: [
+            'Ran the dessert station and everything going out of the pass was available on time.',
+            'Trained six junior cooks and cut ingredient waste across the kitchen brigade.'
+          ]
+        }],
+        skills: [{ category: 'Kitchen', items: ['plating', 'chocolate work', 'gelato'] }]
+      };
+
+      const result = atsService.analyze(chef);
+
+      expect(
+        result.issues.some(i => i.message.includes('No role-relevant keywords found'))
+      ).toBe(true);
+      expect(result.breakdown.keywords.score).toBe(0);
+    });
+
+    it('should still match real keywords that appear as whole words', () => {
+      const result = atsService.analyze(createFullResume());
+
+      expect(
+        result.issues.some(i => /technical keywords|keywords presence|keyword/i.test(i.message))
+      ).toBe(true);
+      expect(result.breakdown.keywords.score).toBeGreaterThan(0);
+    });
+
+    it('should not treat "led" inside "settled" as an action verb', () => {
+      const noVerbs: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Front Desk Ltd',
+          role: 'Receptionist',
+          period: '2020 - 2023',
+          description: ['Handled complaints and settled billing disputes at the front desk.']
+        }]
+      };
+
+      const result = atsService.analyze(noVerbs);
+
+      expect(
+        result.issues.some(i => i.message.includes('Use action verbs'))
+      ).toBe(true);
+    });
+  });
+
+  describe('quantifiable achievement detection', () => {
+    it('should count every metric bullet, not every other one', () => {
+      // The shared patterns used to carry the /g flag, so a stateful
+      // lastIndex made repeated .test() calls skip alternating bullets.
+      const metrics: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Scale Co',
+          role: 'Engineer',
+          period: '2020 - 2024',
+          description: [
+            'Reduced p99 latency by 40% for the checkout service across all regions.',
+            'Reduced infrastructure spend by 25% on the data pipeline over two quarters.',
+            'Reduced onboarding time by 30% for new engineers with better documentation.',
+            'Reduced flaky tests by 80% so the pipeline stopped blocking daily releases.'
+          ]
+        }]
+      };
+
+      const result = atsService.analyze(metrics);
+      const message = result.issues.find(i => i.message.includes('quantifiable achievements'));
+
+      expect(message?.message).toContain('4');
+    });
+
+    it('should be deterministic across repeated analyses of the same resume', () => {
+      const resume = createFullResume();
+      const scores = [1, 2, 3, 4, 5].map(() => atsService.analyze(resume).score);
+
+      expect(new Set(scores).size).toBe(1);
+    });
+
+    it('should not treat an unmeasured claim as a quantified achievement', () => {
+      const vague: ResumeData = {
+        ...createFullResume(),
+        experience: [{
+          institution: 'Vague Corp',
+          role: 'Engineer',
+          period: '2020 - 2024',
+          description: [
+            'Improved performance of the service and optimized the database layer.',
+            'Reduced complexity of the codebase while increasing developer happiness.'
+          ]
+        }]
+      };
+
+      const result = atsService.analyze(vague);
+
+      expect(
+        result.issues.some(i => i.message.includes('No quantified achievements'))
+      ).toBe(true);
+    });
+  });
+
+  describe('summary component', () => {
+    it('should score the headline instead of reporting a permanent zero', () => {
+      const result = atsService.analyze(createFullResume());
+
+      expect(result.breakdown.summary.weight).toBeGreaterThan(0);
+      expect(result.breakdown.summary.score).toBeGreaterThan(0);
+    });
+
+    it('should flag a missing headline', () => {
+      const noTitle: ResumeData = {
+        ...createFullResume(),
+        personal: { ...createFullResume().personal, title: '' }
+      };
+
+      const result = atsService.analyze(noTitle);
+
+      expect(result.breakdown.summary.score).toBe(0);
+      expect(
+        result.issues.some(i => i.category === 'summary' && i.message.includes('headline is empty'))
+      ).toBe(true);
+    });
+
+    it('should rank a keyword-bearing headline above a bare one', () => {
+      const base = createFullResume();
+      const bare: ResumeData = { ...base, personal: { ...base.personal, title: 'Employee' } };
+      const specific: ResumeData = {
+        ...base,
+        personal: { ...base.personal, title: 'Backend Engineer specialising in Python and Kubernetes' }
+      };
+
+      expect(atsService.analyze(specific).breakdown.summary.score)
+        .toBeGreaterThan(atsService.analyze(bare).breakdown.summary.score);
+    });
+  });
+
+  describe('score weighting', () => {
+    it('should use component weights that sum to 1 for every profile', () => {
+      const profiles: ResumeData[] = [
+        createFullResume(),
+        { ...createFullResume(), personal: { ...createFullResume().personal, title: 'Marketing Director' } },
+        { ...createFullResume(), personal: { ...createFullResume().personal, title: 'Product Designer' } },
+        { ...createEmptyResume(), personal: { ...createEmptyResume().personal, title: 'Computer Science student' } }
+      ];
+
+      for (const resume of profiles) {
+        const { breakdown } = atsService.analyze(resume);
+        const total = Object.values(breakdown)
+          .filter((component): component is NonNullable<typeof component> => !!component)
+          .reduce((sum, component) => sum + component.weight, 0);
+
+        expect(total).toBeCloseTo(1, 5);
+      }
+    });
+  });
+
+  describe('issue severity', () => {
+    it('should not report a recommended-only contact field as an error', () => {
+      const result = atsService.analyze({
+        ...createFullResume(),
+        personal: { ...createFullResume().personal, linkedin: '' }
+      });
+
+      const linkedIn = result.issues.find(i => i.message === 'Missing LinkedIn');
+
+      expect(linkedIn?.type).toBe('warning');
+    });
+
+    it('should report issues in English only', () => {
+      const results = [
+        atsService.analyze(createFullResume()),
+        atsService.analyze(createEmptyResume())
+      ];
+
+      for (const result of results) {
+        for (const issue of result.issues) {
+          expect(issue.message).not.toMatch(/[\u0400-\u04FF]/);
         }
       }
     });

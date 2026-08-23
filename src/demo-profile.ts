@@ -1,77 +1,145 @@
-import { faker } from '@faker-js/faker';
-import { ResumeData } from './types';
+import { ResumeData, SkillCategory } from './types';
 
 /**
- * Generates a demo profile with realistic random data using Faker.js
+ * Sample data pools for the demo resume.
+ *
+ * This module is imported by the app at startup, so it must stay free of
+ * heavyweight dependencies: a faker-style data library would ship its entire
+ * locale database (megabytes) to every visitor just to render one placeholder
+ * resume. Small hand-written pools keep the production bundle lean.
+ */
+const FIRST_NAMES = ['Ava', 'Noah', 'Mia', 'Liam', 'Sofia', 'Ethan', 'Nora', 'Lucas', 'Iris', 'Marco'];
+const LAST_NAMES = ['Bennett', 'Okafor', 'Lindqvist', 'Moreau', 'Ivanova', 'Tanaka', 'Silva', 'Novak'];
+const CITIES = [
+  'Berlin, Germany',
+  'Lisbon, Portugal',
+  'Toronto, Canada',
+  'Austin, USA',
+  'Amsterdam, Netherlands',
+  'Seoul, South Korea'
+];
+const COMPANIES = ['Northwind Labs', 'Helix Systems', 'Bluepeak Digital', 'Orbit Software', 'Cardinal Analytics'];
+const UNIVERSITIES = ['Riverside University', 'Northgate Institute of Technology', 'Lakeview University'];
+const DEGREES = ['B.S. Computer Science', 'B.S. Software Engineering', 'M.S. Information Systems', 'B.S. Data Science'];
+
+const TITLES = [
+  'Senior Frontend Engineer',
+  'Full Stack Developer',
+  'Backend Engineer',
+  'Platform Engineer',
+  'Software Engineer'
+];
+
+const ROLES = ['Senior Software Engineer', 'Software Engineer', 'Full Stack Developer', 'Backend Developer'];
+
+const SKILL_POOL = [
+  'TypeScript', 'JavaScript', 'Python', 'Go', 'React', 'Vue', 'Node.js',
+  'PostgreSQL', 'Docker', 'Kubernetes', 'AWS', 'GraphQL', 'REST API', 'CI/CD'
+];
+
+const EDITORS = ['VS Code', 'IntelliJ IDEA', 'WebStorm', 'Neovim'];
+const DESIGN_TOOLS = ['Figma', 'Sketch', 'Adobe XD'];
+
+/**
+ * Achievement bullets written to look like a real resume: each one leads with
+ * an action verb and carries a metric, which is also what the ATS checker
+ * rewards, so the demo profile scores realistically.
+ */
+const ACHIEVEMENTS = [
+  'Led the migration of a legacy dashboard to TypeScript and React, cutting page load time by 42%.',
+  'Designed and shipped a REST API serving 1.2M requests per day with 99.95% uptime.',
+  'Reduced CI pipeline duration from 18 to 6 minutes by parallelising builds and caching dependencies.',
+  'Implemented automated regression tests, lowering production defects by 35% over two quarters.',
+  'Optimised PostgreSQL queries and indexing, improving p95 response time from 800ms to 180ms.',
+  'Mentored 4 junior engineers and introduced code review guidelines adopted across 3 teams.',
+  'Containerised 12 services with Docker and Kubernetes, enabling zero-downtime deployments.'
+];
+
+const EDUCATION_NOTES = [
+  'Graduated with honours; focus on distributed systems and algorithms.',
+  'Teaching assistant for two undergraduate programming courses.',
+  'Final year project on scalable data pipelines, awarded top marks.'
+];
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function pick<T>(items: readonly T[]): T {
+  return items[randomInt(0, items.length - 1)];
+}
+
+/**
+ * Pick `count` distinct items without mutating the source pool.
+ */
+function pickMany<T>(items: readonly T[], count: number): T[] {
+  const pool = [...items];
+  const chosen: T[] = [];
+  const total = Math.min(count, pool.length);
+  for (let i = 0; i < total; i++) {
+    chosen.push(...pool.splice(randomInt(0, pool.length - 1), 1));
+  }
+  return chosen;
+}
+
+/**
+ * Generates a demo profile with plausible random data.
+ *
+ * Experience entries are emitted in reverse chronological order with
+ * non-overlapping, gap-free periods so the ATS date checks see valid input.
  */
 export function generateDemoProfile(): ResumeData {
-  // Generate a list of 5-6 random IT skills from a predefined pool
-  const skillPool = [
-    'JavaScript', 'TypeScript', 'Python', 'Java', 'C++',
-    'React', 'Vue', 'Angular', 'Svelte',
-    'Node.js', 'Express', 'Django', 'Flask',
-    'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP',
-    'Git', 'CI/CD', 'GraphQL', 'REST API',
-    'SQL', 'MongoDB', 'PostgreSQL', 'Redis'
+  const name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+  const handle = name.toLowerCase().replace(/[^a-z]+/g, '');
+
+  const skills: (string | SkillCategory)[] = [
+    ...pickMany(SKILL_POOL, randomInt(5, 6)),
+    { category: 'Tools', items: [pick(EDITORS), pick(DESIGN_TOOLS), 'Git'] }
   ];
-  
-  const skills: (string | { category: string; items: string[] })[] = [];
-  const selectedSkills = new Set<string>();
-  
-  // Select 5-6 random skills
-  const numSkills = faker.number.int({ min: 5, max: 6 });
-  for (let i = 0; i < numSkills; i++) {
-    selectedSkills.add(faker.helpers.arrayElement(skillPool));
-  }
-  
-  // Add some categorized skills
-  skills.push(...Array.from(selectedSkills));
-  skills.push({
-    category: 'Tools',
-    items: [faker.helpers.arrayElement(['VS Code', 'IntelliJ', 'WebStorm']), faker.helpers.arrayElement(['Figma', 'Sketch', 'Adobe XD'])]
-  });
 
-  // Generate 2-3 work experiences
-  const experience: { institution: string; role: string; period: string; description: string[] }[] = [];
-  const numExperiences = faker.number.int({ min: 2, max: 3 });
-  
+  const currentYear = new Date().getFullYear();
+  const numExperiences = randomInt(2, 3);
+  const bullets = pickMany(ACHIEVEMENTS, numExperiences * 2);
+
+  const experience = [];
+  let periodEnd: number | null = null; // null => the most recent role is ongoing
+  let periodStart = currentYear - randomInt(1, 3);
+  let earliestStart = periodStart;
+
   for (let i = 0; i < numExperiences; i++) {
-    const startDate = faker.date.past({ years: 5 - i });
-    const endDate = i === 0 ? faker.date.recent() : faker.date.between({ from: startDate, to: new Date() });
-    
     experience.push({
-      institution: faker.company.name(),
-      role: faker.person.jobTitle(),
-      period: `${startDate.getFullYear()} - ${endDate.getFullYear()}`,
-      description: [
-        faker.lorem.sentence({ min: 10, max: 20 }),
-        faker.lorem.sentence({ min: 10, max: 20 })
-      ]
+      institution: pick(COMPANIES),
+      role: pick(ROLES),
+      period: periodEnd === null ? `${periodStart} - Present` : `${periodStart} - ${periodEnd}`,
+      description: bullets.slice(i * 2, i * 2 + 2)
     });
+    earliestStart = periodStart;
+    // Next entry ends where this one began, keeping the timeline gap-free.
+    periodEnd = periodStart;
+    periodStart = periodStart - randomInt(2, 3);
   }
 
-  // Generate education
-  const education: { institution: string; role: string; period: string; description: string[] }[] = [
+  // Graduate in the year the first job started, so the resume timeline has no
+  // gap between education and the earliest role.
+  const graduationYear = earliestStart;
+  const education = [
     {
-      institution: `${faker.location.city()} University`,
-      role: `B.S. ${faker.helpers.arrayElement(['Computer Science', 'Software Engineering', 'Information Technology', 'Data Science'])}`,
-      period: `${faker.number.int({ min: 2016, max: 2019 })} - ${faker.number.int({ min: 2020, max: 2024 })}`,
-      description: [
-        `GPA: ${faker.number.float({ min: 3.0, max: 4.0, fractionDigits: 1 })}/4.0`,
-        faker.lorem.sentence({ min: 8, max: 15 })
-      ]
+      institution: pick(UNIVERSITIES),
+      role: pick(DEGREES),
+      period: `${graduationYear - 4} - ${graduationYear}`,
+      description: [`GPA: ${(randomInt(30, 40) / 10).toFixed(1)}/4.0`, pick(EDUCATION_NOTES)]
     }
   ];
 
   return {
     personal: {
-      name: faker.person.fullName(),
-      title: faker.person.jobTitle(),
-      email: faker.internet.email(),
-      phone: faker.phone.number(),
-      location: `${faker.location.city()}, ${faker.location.country()}`,
-      github: `github.com/${faker.internet.userName()}`,
-      linkedin: `linkedin.com/in/${faker.internet.userName()}`
+      name,
+      title: pick(TITLES),
+      email: `${handle}@example.com`,
+      phone: `+1 555 ${randomInt(100, 999)} ${randomInt(1000, 9999)}`,
+      location: pick(CITIES),
+      github: `github.com/${handle}`,
+      linkedin: `linkedin.com/in/${handle}`
     },
     education,
     experience,

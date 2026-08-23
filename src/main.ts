@@ -1,9 +1,10 @@
 import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
+import { readResumeFromDom } from './resume-editor';
 import { ExportService } from './services/ExportService';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
-import { translations, Lang, defaultLang } from './translations';
+import { translations, tr, Lang, TranslationKey, defaultLang } from './translations';
 import { cleanDuplicateEmojis } from './i18n/index';
 import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
@@ -18,6 +19,19 @@ const atsService = new ATSService();
 const exportService = new ExportService();
 
 const defaultData: ResumeData = generateDemoProfile();
+
+/**
+ * The preview is contenteditable, so the DOM holds the newest text. Always
+ * read through here before exporting or analysing, and cache the result so
+ * later calls stay consistent even if the container disappears.
+ */
+function getCurrentResumeData(): ResumeData | null {
+  const container = document.getElementById('resume-container');
+  if (!container || !currentResumeData) return currentResumeData;
+
+  currentResumeData = readResumeFromDom(container, currentResumeData);
+  return currentResumeData;
+}
 
 /**
  * Update all UI text based on current language
@@ -36,6 +50,26 @@ function updateInterfaceLanguage(lang: Lang): void {
   updateText('lang-label', t.languageLabel);
   updateText('export-pdf', t.exportBtn);
   updateText('save-json', t.saveJsonBtn);
+  updateText('import-github', t.importBtn);
+  updateText('ats-check', `\u{1F4CA} ${t.atsCheckBtn}`);
+  updateText('random-design-btn', `\u{1F3B2} ${t.randomDesignBtn}`);
+  updateText('loading-overlay-text', t.loadingGitHub);
+
+  // Keep accessible names in sync with the visible language
+  const setAria = (id: string, label: string) => {
+    document.getElementById(id)?.setAttribute('aria-label', label);
+  };
+  setAria('import-github', t.importBtn);
+  setAria('save-json', t.saveJsonBtn);
+  setAria('export-pdf', t.exportBtn);
+  setAria('ats-check', t.atsCheckBtn);
+
+  // Re-render the open ATS panel so its labels follow the new language
+  const openPanel = document.getElementById('ats-panel');
+  const liveData = getCurrentResumeData();
+  if (openPanel && !openPanel.classList.contains('hidden') && liveData) {
+    showATSResultPanel(atsService.analyze(liveData));
+  }
   
   // Update placeholder specifically
   const githubInput = document.getElementById('github-url') as HTMLInputElement;
@@ -305,9 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Просто проверяем, что поле не пустое - валидация формата теперь в extractUsername
     if (!input) {
-      showNotification(currentLang === 'ru' ? translations.ru.invalidUsername : 
-                       currentLang === 'ko' ? translations.ko.invalidUsername : 
-                       translations.en.invalidUsername, 'error');
+      showNotification(tr(currentLang, 'invalidUsername'), 'error');
       return;
     }
     
@@ -318,26 +350,27 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const data = await fetchGitHubResumeData(input);
       updateUI(data, container);
-      showNotification('✅ Profile loaded successfully!', 'success');
+      showNotification(tr(currentLang, 'profileLoaded'), 'success');
+
+      // The import never fabricates employment or education, so the user has
+      // to be told those sections are waiting for them - otherwise a blank
+      // Experience block reads as a bug rather than a prompt.
+      if (!data.experience?.length || !data.education?.length) {
+        setTimeout(
+          () => showNotification(tr(currentLang, 'fillInExperience'), 'info'),
+          2600
+        );
+      }
       
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
       // Показываем более точное сообщение об ошибке
-      if (errorMessage.includes('Invalid username') || errorMessage.includes('User not found')) {
-        showNotification(
-          currentLang === 'ru' ? '❌ Пользователь не найден или неверный формат' : 
-          currentLang === 'ko' ? '❌ 사용자를 찾을 수 없거나 잘못된 형식' : 
-          '❌ User not found or invalid format', 
-          'error'
-        );
-      } else {
-        showNotification(
-          currentLang === 'ru' ? '❌ Пользователь не найден или лимит API' : 
-          currentLang === 'ko' ? '❌ 사용자를 찾을 수 없거나 API 제한' : 
-          '❌ GitHub User not found or API limit reached', 
-          'error'
-        );
-      }
+      const isLookupFailure =
+        errorMessage.includes('Invalid username') || errorMessage.includes('User not found');
+      showNotification(
+        tr(currentLang, isLookupFailure ? 'userNotFound' : 'rateLimited'),
+        'error'
+      );
     } finally {
       if (loader) loader.style.display = 'none';
       if (loadingOverlay) loadingOverlay.classList.add('hidden');
@@ -347,50 +380,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // JSON Export with notification
   document.getElementById('save-json')?.addEventListener('click', () => {
-    if (!currentResumeData) return;
-    const blob = new Blob([JSON.stringify(currentResumeData, null, 2)], { type: 'application/json' });
+    const data = getCurrentResumeData();
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resume-${currentResumeData.personal.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.download = `resume-${slugify(data.personal.name)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showNotification(
-      currentLang === 'ru' ? translations.ru.jsonSaved : 
-      currentLang === 'ko' ? translations.ko.jsonSaved : 
-      translations.en.jsonSaved, 
-      'success'
-    );
+    showNotification(tr(currentLang, 'jsonSaved'), 'success');
   });
 
   // PDF Export with notification
   document.getElementById('export-pdf')?.addEventListener('click', async () => {
+    const data = getCurrentResumeData();
+    if (!data) return;
     try {
-      await exportService.exportToPdf('resume-container');
-      showNotification(
-        currentLang === 'ru' ? translations.ru.exportSuccess : 
-        currentLang === 'ko' ? translations.ko.exportSuccess : 
-        translations.en.exportSuccess, 
-        'success'
-      );
+      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`);
+      showNotification(tr(currentLang, 'exportSuccess'), 'success');
     } catch (error) {
       console.error('PDF export error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showNotification(
-        currentLang === 'ru' ? `Ошибка при экспорте PDF: ${errorMessage}` : 
-        currentLang === 'ko' ? `PDF 내보내기 오류: ${errorMessage}` : 
-        `PDF export error: ${errorMessage}`, 
-        'error'
-      );
+      showNotification(`${tr(currentLang, 'exportError')}: ${errorMessage}`, 'error');
     }
   });
 
   // ATS Check Button - Toggle panel visibility
   document.getElementById('ats-check')?.addEventListener('click', () => {
     logger.debug('ATS Check clicked');
-    logger.debug('currentResumeData:', currentResumeData);
+    const liveData = getCurrentResumeData();
+    logger.debug('currentResumeData:', liveData);
     
-    if (!currentResumeData) {
+    if (!liveData) {
       logger.error('No resume data available');
       return;
     }
@@ -403,16 +425,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     logger.debug('Analyzing resume:', {
-      email: currentResumeData.personal.email,
-      github: currentResumeData.personal.github,
-      phone: currentResumeData.personal.phone,
-      linkedin: currentResumeData.personal.linkedin,
-      title: currentResumeData.personal.title,
-      skillsCount: currentResumeData.skills?.length || 0,
-      experienceCount: currentResumeData.experience?.length || 0
+      email: liveData.personal.email,
+      github: liveData.personal.github,
+      phone: liveData.personal.phone,
+      linkedin: liveData.personal.linkedin,
+      title: liveData.personal.title,
+      skillsCount: liveData.skills?.length || 0,
+      experienceCount: liveData.experience?.length || 0
     });
 
-    const result = atsService.analyze(currentResumeData);
+    const result = atsService.analyze(liveData);
     
     logger.debug('ATS Result:', {
       score: result.score,
@@ -425,9 +447,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Build a filesystem-friendly name for downloads.
+ */
+function slugify(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'resume'
+  );
+}
+
+/**
  * Show a toast notification
  */
-function showNotification(message: string, type: 'success' | 'error' = 'success'): void {
+const NOTIFICATION_COLORS: Record<'success' | 'error' | 'info', string> = {
+  success: '#4CAF50',
+  error: '#f44336',
+  info: '#2f6fd0'
+};
+
+function showNotification(
+  message: string,
+  type: 'success' | 'error' | 'info' = 'success'
+): void {
   // Remove existing notification if any
   const existing = document.getElementById('toast-notification');
   if (existing) existing.remove();
@@ -439,7 +482,7 @@ function showNotification(message: string, type: 'success' | 'error' = 'success'
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: ${type === 'success' ? '#4CAF50' : '#f44336'};
+    background: ${NOTIFICATION_COLORS[type]};
     color: white;
     padding: 12px 24px;
     border-radius: 8px;
@@ -450,11 +493,13 @@ function showNotification(message: string, type: 'success' | 'error' = 'success'
   `;
   document.body.appendChild(toast);
 
+  // Guidance takes longer to read than a "done" confirmation.
+  const visibleFor = type === 'info' ? 7000 : 3000;
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transition = 'opacity 0.3s';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, visibleFor);
 }
 
 /**
@@ -468,7 +513,7 @@ function showATSResultPanel(result: ATSResult): void {
   // Build detailed breakdown if available
   const breakdownHtml = result.breakdown ? `
     <div class="ats-breakdown">
-      <h4 class="ats-breakdown-title">📈 Детализация оценки</h4>
+      <h4 class="ats-breakdown-title">\u{1F4C8} ${tr(currentLang, 'atsBreakdownTitle')}</h4>
       ${Object.entries(result.breakdown).map(([key, component]) => `
         <div class="ats-breakdown-item">
           <span class="ats-breakdown-label">${getBreakdownLabel(key)}</span>
@@ -484,12 +529,12 @@ function showATSResultPanel(result: ATSResult): void {
   // Build panel content
   content.innerHTML = `
     <div class="ats-panel-header">
-      <span class="ats-panel-title">📊 ATS Score</span>
+      <span class="ats-panel-title">\u{1F4CA} ${tr(currentLang, 'atsScoreTitle')}</span>
       <span class="ats-panel-score ${getScoreClass(result.score)}">${result.score} / 100</span>
     </div>
     ${breakdownHtml}
     <div class="ats-panel-issues">
-      <h4 class="ats-issues-title">📋 Рекомендации</h4>
+      <h4 class="ats-issues-title">\u{1F4CB} ${tr(currentLang, 'atsRecommendationsTitle')}</h4>
       ${result.issues.map(issue => `
         <div class="ats-panel-issue issue-${issue.type}">
           <span class="ats-panel-issue-icon">${getIssueIcon(issue.type)}</span>
@@ -506,15 +551,29 @@ function showATSResultPanel(result: ATSResult): void {
  * Get label for breakdown category
  */
 function getBreakdownLabel(key: string): string {
-  const labels: Record<string, string> = {
-    structure: '📋 Структура',
-    keywords: '🔑 Ключевые слова',
-    contacts: '📞 Контакты',
-    format: '📝 Формат',
-    dates: '📅 Даты',
-    experience: '💼 Опыт'
+  const icons: Record<string, string> = {
+    structure: '\u{1F4CB}',
+    keywords: '\u{1F511}',
+    contacts: '\u{1F4DE}',
+    format: '\u{1F4DD}',
+    dates: '\u{1F4C5}',
+    experience: '\u{1F4BC}',
+    education: '\u{1F393}',
+    summary: '\u{1F9FE}'
   };
-  return labels[key] || key;
+  const labelKeys: Record<string, TranslationKey> = {
+    structure: 'atsStructure',
+    keywords: 'atsKeywords',
+    contacts: 'atsContacts',
+    format: 'atsFormat',
+    dates: 'atsDates',
+    experience: 'atsExperience',
+    education: 'atsEducation',
+    summary: 'atsSummary'
+  };
+  const labelKey = labelKeys[key];
+  if (!labelKey) return key;
+  return `${icons[key] ?? ''} ${tr(currentLang, labelKey)}`.trim();
 }
 
 /**
@@ -558,14 +617,7 @@ function showEditableHint(): void {
   const hintEl = document.getElementById('editable-hint');
   if (!hintEl) return;
   
-  const messages: Record<string, string> = {
-    en: '💡 Tip: Click any text in the resume to edit it directly!',
-    ru: '💡 Совет: Нажмите на любой текст в резюме, чтобы отредактировать его!',
-    ko: '💡 팁: 이력서의 텍스트를 클릭하여 직접 편집할 수 있습니다!'
-  };
-  
-  const lang = currentLang || 'en';
-  hintEl.textContent = messages[lang] || messages.en;
+  hintEl.textContent = `\u{1F4A1} ${tr(currentLang, 'editableHint')}`;
   hintEl.style.cssText = `
     position: fixed;
     top: 80px;

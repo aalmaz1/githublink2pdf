@@ -12,9 +12,30 @@ export const translations = {
     alignLeft: 'Left',
     alignCenter: 'Center',
     alignJustify: 'Justify',
-    invalidUsername: '⚠️ Please enter a valid GitHub username',
-    exportSuccess: '✅ PDF exported successfully!',
-    jsonSaved: '✅ JSON file downloaded'
+    importBtn: 'Import',
+    randomDesignBtn: 'Random',
+    atsCheckBtn: 'ATS Check',
+    loadingGitHub: 'Loading GitHub data...',
+    invalidUsername: 'Please enter a valid GitHub username',
+    exportSuccess: 'PDF exported successfully!',
+    exportError: 'PDF export error',
+    jsonSaved: 'JSON file downloaded',
+    profileLoaded: 'Profile loaded successfully!',
+    fillInExperience: 'GitHub does not know your jobs or studies - add them in the Experience and Education sections.',
+    userNotFound: 'User not found or invalid format',
+    rateLimited: 'GitHub user not found or API limit reached',
+    editableHint: 'Tip: Click any text in the resume to edit it directly!',
+    atsScoreTitle: 'ATS Score',
+    atsBreakdownTitle: 'Score breakdown',
+    atsRecommendationsTitle: 'Recommendations',
+    atsStructure: 'Structure',
+    atsKeywords: 'Keywords',
+    atsContacts: 'Contacts',
+    atsFormat: 'Format',
+    atsDates: 'Dates',
+    atsExperience: 'Experience',
+    atsEducation: 'Education',
+    atsSummary: 'Summary'
   },
   ru: {
     appTitle: 'Github Link2PDF Resume Builder',
@@ -27,9 +48,30 @@ export const translations = {
     alignLeft: 'Левый',
     alignCenter: 'Центр',
     alignJustify: 'По ширине',
-    invalidUsername: '⚠️ Введите корректное имя пользователя GitHub',
-    exportSuccess: '✅ PDF успешно экспортирован!',
-    jsonSaved: '✅ JSON файл загружен'
+    importBtn: 'Импорт',
+    randomDesignBtn: 'Случайный',
+    atsCheckBtn: 'Проверка ATS',
+    loadingGitHub: 'Загрузка данных GitHub...',
+    invalidUsername: 'Введите корректное имя пользователя GitHub',
+    exportSuccess: 'PDF успешно экспортирован!',
+    exportError: 'Ошибка при экспорте PDF',
+    jsonSaved: 'JSON файл загружен',
+    profileLoaded: 'Профиль успешно загружен!',
+    fillInExperience: 'GitHub не знает о вашей работе и учёбе — впишите их в разделы «Опыт» и «Образование».',
+    userNotFound: 'Пользователь не найден или неверный формат',
+    rateLimited: 'Пользователь не найден или превышен лимит API',
+    editableHint: 'Совет: нажмите на любой текст в резюме, чтобы отредактировать его!',
+    atsScoreTitle: 'Оценка ATS',
+    atsBreakdownTitle: 'Детализация оценки',
+    atsRecommendationsTitle: 'Рекомендации',
+    atsStructure: 'Структура',
+    atsKeywords: 'Ключевые слова',
+    atsContacts: 'Контакты',
+    atsFormat: 'Формат',
+    atsDates: 'Даты',
+    atsExperience: 'Опыт',
+    atsEducation: 'Образование',
+    atsSummary: 'Итог'
   },
   ko: {
     appTitle: 'Github Link2PDF Resume Builder',
@@ -42,10 +84,40 @@ export const translations = {
     alignLeft: '왼쪽',
     alignCenter: '중앙',
     alignJustify: '양쪽 맞춤',
-    invalidUsername: '⚠️ 유효한 GitHub 사용자명을 입력하세요',
-    exportSuccess: '✅ PDF 가 성공적으로 내보내졌습니다!',
-    jsonSaved: '✅ JSON 파일이 다운로드되었습니다'
+    importBtn: '가져오기',
+    randomDesignBtn: '랜덤',
+    atsCheckBtn: 'ATS 검사',
+    loadingGitHub: 'GitHub 데이터를 불러오는 중...',
+    invalidUsername: '유효한 GitHub 사용자명을 입력하세요',
+    exportSuccess: 'PDF 가 성공적으로 내보내졌습니다!',
+    exportError: 'PDF 내보내기 오류',
+    jsonSaved: 'JSON 파일이 다운로드되었습니다',
+    profileLoaded: '프로필을 성공적으로 불러왔습니다!',
+    fillInExperience: 'GitHub은 경력과 학력을 알지 못합니다. 경력 및 학력 항목에 직접 입력하세요.',
+    userNotFound: '사용자를 찾을 수 없거나 잘못된 형식입니다',
+    rateLimited: '사용자를 찾을 수 없거나 API 한도를 초과했습니다',
+    editableHint: '팁: 이력서의 텍스트를 클릭하여 직접 편집할 수 있습니다!',
+    atsScoreTitle: 'ATS 점수',
+    atsBreakdownTitle: '점수 상세',
+    atsRecommendationsTitle: '권장 사항',
+    atsStructure: '구조',
+    atsKeywords: '키워드',
+    atsContacts: '연락처',
+    atsFormat: '형식',
+    atsDates: '날짜',
+    atsExperience: '경력',
+    atsEducation: '학력',
+    atsSummary: '요약'
   }
-};
+} as const;
+
+export type TranslationKey = keyof (typeof translations)['en'];
 
 export const defaultLang: Lang = 'en';
+
+/**
+ * Look up a UI string for the given language, falling back to English.
+ */
+export function tr(lang: Lang, key: TranslationKey): string {
+  return translations[lang]?.[key] ?? translations[defaultLang][key];
+}

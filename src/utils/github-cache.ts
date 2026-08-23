@@ -34,6 +34,11 @@ class GitHubCache {
       timestamp: Date.now()
     });
   }
+
+  /** Drops every cached response, e.g. to force a fresh fetch. */
+  public clear(): void {
+    this.cache.clear();
+  }
 }
 
 // Singleton instance for global cache
