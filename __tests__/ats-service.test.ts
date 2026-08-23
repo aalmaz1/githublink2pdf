@@ -394,6 +394,51 @@ describe('ATSService', () => {
     });
   });
 
+  describe('date parsing', () => {
+    const withPeriods = (periods: string[]): ResumeData => ({
+      ...createFullResume(),
+      education: [],
+      experience: periods.map((period, i) => ({
+        institution: 'Company ' + i,
+        role: 'Software Engineer',
+        period,
+        description: [
+          'Developed TypeScript services and React interfaces improving latency by 30 percent'
+        ]
+      }))
+    });
+
+    const dateMessages = (data: ResumeData): string[] =>
+      atsService.analyze(data).issues.filter(i => i.category === 'dates').map(i => i.message);
+
+    it('should treat an open-ended current role as a range, not a format mismatch', () => {
+      const messages = dateMessages(withPeriods(['2020 - Present', '2016 - 2020']));
+      expect(messages.some(m => m.includes('Inconsistent date formats'))).toBe(false);
+    });
+
+    it('should accept "to" as a range separator', () => {
+      const messages = dateMessages(withPeriods(['2016 to 2020', '2012 to 2016']));
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(false);
+      expect(messages.some(m => m.includes('employment gap'))).toBe(false);
+    });
+
+    it('should not split month names containing "t" or "o" (e.g. Oct)', () => {
+      const messages = dateMessages(withPeriods(['Oct 2020 - Present', 'Jan 2016 - Sep 2020']));
+      expect(messages.some(m => m.includes('Inconsistent date formats'))).toBe(false);
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(false);
+    });
+
+    it('should still flag entries listed out of reverse chronological order', () => {
+      const messages = dateMessages(withPeriods(['2012 - 2016', '2016 - 2020']));
+      expect(messages.some(m => m.includes('not in reverse chronological order'))).toBe(true);
+    });
+
+    it('should still flag a real employment gap', () => {
+      const messages = dateMessages(withPeriods(['2020 - 2022', '2012 - 2015']));
+      expect(messages.some(m => m.includes('employment gap'))).toBe(true);
+    });
+  });
+
   describe('issue message text', () => {
     it('should not embed status emoji in messages (status icon is rendered separately)', () => {
       const statusEmojiPattern = /^[✅✔️✓⚠️⚠❗❌✖️×💡]\s*/;

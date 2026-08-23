@@ -269,9 +269,20 @@ export async function fetchGitHubResumeData(input: string): Promise<ResumeData> 
       fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=30`, { headers })
     ]);
     
-    if (!userRes.ok) throw new Error('User not found');
+    if (!userRes.ok) {
+      // 403/429 mean the unauthenticated rate limit was hit, which is a very
+      // different problem from a typo in the username — don't conflate them.
+      if (userRes.status === 403 || userRes.status === 429) {
+        throw new Error('GitHub API rate limit reached. Please try again later.');
+      }
+      throw new Error('User not found');
+    }
     profile = await userRes.json();
-    allRepos = await reposRes.json() as any[];
+
+    // A failed repo request returns an error object, not an array; guard the
+    // shape so downstream array operations cannot throw.
+    const reposJson = reposRes.ok ? await reposRes.json() : null;
+    allRepos = Array.isArray(reposJson) ? reposJson : [];
     
     // Cache the results
     githubCache.set(userCacheKey, profile);

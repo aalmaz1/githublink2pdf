@@ -1,5 +1,5 @@
 import { ATSResult, ATSIssue, ATSScoreBreakdown, ResumeProfile } from '../types/ats';
-import { ResumeData } from '../types';
+import { ResumeData, TimeBoundedEntity } from '../types';
 import {
   ACTION_VERBS,
   MANAGEMENT_KEYWORDS,
@@ -269,7 +269,7 @@ function parsePeriod(period: string): { year: number | null; month: number | nul
  * Check if a period string indicates "Present" or "Current"
  */
 function isPresent(period: string): boolean {
-  return /(present|current|now|ongoing)/i.test(period);
+  return /\b(present|current|now|ongoing)\b/i.test(period);
 }
 
 /**
@@ -280,7 +280,9 @@ function parsePeriodRange(period: string): {
   end: { year: number | null; month: number | null };
   isCurrent: boolean;
 } {
-  const parts = period.split(/[-\u2013\u2014to]+/).map(p => p.trim());
+  // Split on a dash/en dash/em dash or the word "to" — never on the bare
+  // letters "t"/"o", which a character class would match (e.g. "Oct 2020").
+  const parts = period.split(/\s*(?:[-\u2013\u2014]+|\bto\b)\s*/i).map(p => p.trim());
   const start = parts[0] ? parsePeriod(parts[0]) : { year: null, month: null };
   const endPart = parts.length > 1 ? parts[1] : '';
   const isCurrent = isPresent(endPart) || !endPart;
@@ -745,23 +747,32 @@ export class ATSService {
       return 100;
     }
 
-    // --- Parse and check chronological order ---
-    const parsed: Array<{ startYear: number | null; endYear: number | null; isCurrent: boolean; period: string }> = [];
-    for (const entity of allEntities) {
-      if (!entity.period || !entity.period.trim()) continue;
-      const { start, end, isCurrent } = parsePeriodRange(entity.period);
-      parsed.push({ startYear: start.year, endYear: end.year, isCurrent, period: entity.period });
-    }
+    // --- Parse periods, preserving the order they appear in on the resume ---
+    type ParsedPeriod = { startYear: number | null; endYear: number | null; isCurrent: boolean; period: string };
 
-    // Sort by start year descending (most recent first)
-    const sorted = [...parsed].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
+    const parsePeriods = (entities: TimeBoundedEntity[]): ParsedPeriod[] => {
+      const result: ParsedPeriod[] = [];
+      for (const entity of entities) {
+        if (!entity.period || !entity.period.trim()) continue;
+        const { start, end, isCurrent } = parsePeriodRange(entity.period);
+        result.push({ startYear: start.year, endYear: end.year, isCurrent, period: entity.period });
+      }
+      return result;
+    };
+
+    const parsedExperience = parsePeriods(data.experience || []);
+    const parsedEducation = parsePeriods(data.education || []);
+    const parsed = [...parsedExperience, ...parsedEducation];
 
     // Check for inconsistent format patterns
     const formats = new Set<string>();
     for (const p of parsed) {
-      const fmt = p.period.match(/\d{4}/g)?.length ?? 0;
-      const hasMonth = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*/i.test(p.period) || /^\d{1,2}\//.test(p.period);
-      formats.add(fmt === 2 ? 'range' : fmt === 1 ? (hasMonth ? 'month-year' : 'year-only') : 'other');
+      const years = p.period.match(/\d{4}/g)?.length ?? 0;
+      const hasMonth = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b/i.test(p.period) || /^\d{1,2}\//.test(p.period);
+      // "2020 - Present" is a range even though it carries a single year:
+      // an open-ended current role must not be reported as a format mismatch.
+      const isRange = years >= 2 || (years === 1 && p.isCurrent);
+      formats.add(isRange ? 'range' : years === 1 ? (hasMonth ? 'month-year' : 'year-only') : 'other');
     }
     if (formats.size > 1) {
       score -= 15;
@@ -772,13 +783,16 @@ export class ATSService {
       });
     }
 
-    // Check for chronological gaps
+    // Check for chronological gaps.
+    // Walk newest-first: a gap is the distance between an older entry's end
+    // year and the start year of the next, more recent entry.
+    const byRecency = [...parsed].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0));
     let gapIssues = 0;
-    for (let i =0; i < sorted.length - 1; i++) {
-      const current = sorted[i];
-      const next = sorted[i + 1];
-      if (current.endYear === null || next.startYear === null) continue;
-      const gap = next.startYear - current.endYear;
+    for (let i = 0; i < byRecency.length - 1; i++) {
+      const newer = byRecency[i];
+      const older = byRecency[i + 1];
+      if (newer.startYear === null || older.endYear === null) continue;
+      const gap = newer.startYear - older.endYear;
       if (gap > 1) {
         gapIssues++;
         if (gapIssues <= 2) {
@@ -800,15 +814,21 @@ export class ATSService {
       });
     }
 
-    // Check for chronological order violations
-    let outOfOrder = false;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i].startYear !== null && sorted[i + 1].startYear !== null &&
-          sorted[i].startYear! < sorted[i + 1].startYear!) {
-        outOfOrder = true;
-        break;
+    // Check for chronological order violations.
+    // This must inspect the order the entries are listed in on the resume;
+    // checking a recency-sorted copy could never fail. Experience and
+    // education are separate sections, so each is validated on its own.
+    const isOutOfOrder = (entries: ParsedPeriod[]): boolean => {
+      for (let i = 0; i < entries.length - 1; i++) {
+        const current = entries[i];
+        const next = entries[i + 1];
+        if (current.startYear === null || next.startYear === null) continue;
+        // A current ("Present") role always belongs at the top.
+        if (current.startYear < next.startYear) return true;
       }
-    }
+      return false;
+    };
+    const outOfOrder = isOutOfOrder(parsedExperience) || isOutOfOrder(parsedEducation);
     if (outOfOrder) {
       score -= 20;
       issues.push({
