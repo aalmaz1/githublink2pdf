@@ -1,56 +1,7 @@
 {
   "common": {
     "education": "Education",
-    "summary": "Summary",
     "experience": "Experience",
-    "skills": "Skills",
-    "name": "Name",
-    "title": "Title",
-    "email": "Email",
-    "phone": "Phone",
-    "location": "Location",
-    "github": "GitHub"
-  },
-  "ats_checker": {
-    "title": "ATS Checker",
-    "status_pass": "Pass",
-    "status_warning": "Warning",
-    "status_fail": "Fail",
-    "messages": {
-      "education_section_present": "Education section present",
-      "education_section_missing": "Education section missing",
-      "summary_length_optimal": "Summary length is optimal",
-      "summary_too_short": "Summary is too short",
-      "summary_too_long": "Summary is too long",
-      "contact_info_complete": "Contact information is complete",
-      "contact_info_incomplete": "Contact information is incomplete",
-      "skills_section_present": "Skills section present",
-      "skills_section_missing": "Skills section missing",
-      "experience_section_present": "Experience section present",
-      "experience_section_missing": "Experience section missing",
-      "keywords_found": "Keywords found",
-      "keywords_missing": "Keywords missing",
-      "formatting_valid": "Formatting is valid",
-      "formatting_issues": "Formatting issues detected",
-      "file_size_optimal": "File size is optimal",
-      "file_size_too_large": "File size is too large"
-    }
-  },
-  "ui": {
-    "theme_dark": "🌙 Dark",
-    "theme_light": "☀️ Light",
-    "theme_label": "Site Theme:",
-    "design_label": "Resume Design:",
-    "align_label": "Alignment:",
-    "align_left": "⬅ Left",
-    "align_center": "↔ Center",
-    "align_justify": "≡ Justify",
-    "import_github": "Import",
-    "save_json": "Save JSON",
-    "export_pdf": "Export PDF",
-    "github_placeholder": "GitHub username (e.g. torvalds)",
-    "loading": "Loading GitHub data...",
-    "error_github_not_found": "GitHub User not found or API limit reached",
-    "error_enter_username": "Please enter a username"
+    "skills": "Skills"
   }
 }

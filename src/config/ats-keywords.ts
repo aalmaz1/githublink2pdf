@@ -4,7 +4,7 @@
  */
 
 // Extended technical keywords including ML/Data Science terms
-export const BASE_TECH_KEYWORDS = [
+const BASE_TECH_KEYWORDS = [
   'TypeScript', 'JavaScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'Scala',
   'React', 'Vue', 'Angular', 'HTML', 'CSS', 'SASS', 'LESS', 'Webpack', 'Vite', 'Next.js', 'Nuxt',
   'Node', 'Express', 'NestJS', 'Django', 'Flask', 'FastAPI', 'Spring', 'Laravel', 'Rails',

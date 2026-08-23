@@ -16,7 +16,7 @@ A network connection is required only for GitHub import (unauthenticated GitHub 
 
 ### Language support
 
-The UI chrome (buttons, labels, toasts) switches between English, Russian, and Korean. Resume section headings and ATS messages use the dictionaries in `src/i18n/` (English and Russian) and fall back to English for other languages; a few ATS panel labels are not yet localized.
+The UI chrome (buttons, labels, toasts) switches between English, Russian, and Korean. Resume section headings and ATS recommendations remain in English; a few ATS panel labels are not yet localized.
 
 ## Tech stack
 
@@ -79,10 +79,10 @@ src/
   html2pdf.d.ts                # Type declarations for html2pdf.js
   designs/design-templates.ts  # The 30 design definitions + helpers
   services/ATSService.ts       # ATS scoring
-  services/ExportService.ts    # A4 PDF and JSON export
+  services/ExportService.ts    # A4 PDF export
   config/ats-keywords.ts       # Keyword banks used by the ATS checker
-  i18n/index.ts                # i18n helpers (EN / RU dictionaries)
-  i18n/en.json, ru.json        # Section labels and ATS message maps
+  i18n/index.ts                # Resume-heading lookup and emoji cleanup
+  i18n/en.json                 # English resume section labels
   types.ts, types/ats.ts       # Resume and ATS data types
   utils/github-cache.ts        # localStorage cache for GitHub responses
   utils/logger.ts              # Console logger

@@ -1,13 +1,13 @@
 import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
 import { ExportService } from './services/ExportService';
-import { fetchGitHubResumeData, extractUsername } from './github-provider';
+import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { translations, Lang, defaultLang } from './translations';
 import { cleanDuplicateEmojis } from './i18n/index';
 import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
-import { DESIGNS, getRandomDesign, DesignTemplate } from './designs/design-templates';
+import { DESIGNS, getRandomDesign } from './designs/design-templates';
 import { logger } from './utils/logger';
 
 let currentResumeData: ResumeData | null = null;
@@ -48,13 +48,6 @@ function updateInterfaceLanguage(lang: Lang): void {
       el.textContent = t[key as keyof typeof t] as string;
     }
   });
-  
-  // Update theme toggle button
-  const themeToggleBtn = document.getElementById('theme-toggle');
-  if (themeToggleBtn) {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    themeToggleBtn.textContent = isDark ? t.themeDark : t.themeLight;
-  }
   
   // Save to localStorage
   localStorage.setItem('resume-lang', lang);
@@ -141,7 +134,7 @@ function applyDesign(designId: string): void {
     designSelect.value = designId;
   }
 }
-/**
+
 /**
  * Initialize design selector dropdown
  */
@@ -585,7 +578,7 @@ function showEditableHint(): void {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 9999;
     font-size: 13px;
-    animation: fadeInDown 0.5s ease-out;
+    animation: slideIn 0.5s ease-out;
     white-space: nowrap;
     pointer-events: none;
   `;
