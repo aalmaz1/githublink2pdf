@@ -2122,6 +2122,208 @@ li {
   margin-bottom: 12px;
 }
 
+/* ==========================================================================
+   Job-Matching Bar (paste a job description for targeted ATS matching)
+   ========================================================================== */
+.job-match-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 850px;
+  max-width: 100%;
+  margin: -10px auto 22px;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  color: var(--ui-text);
+  border-radius: 16px;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 30px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-edge-shadow);
+}
+
+.job-match-bar textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 42px;
+  max-height: 120px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--ui-panel-bg);
+  color: var(--ui-text);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.job-match-bar textarea:focus {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.job-match-bar textarea::placeholder {
+  color: var(--ui-muted, #94a3b8);
+}
+
+.job-match-bar.collapsed textarea {
+  display: none;
+}
+
+.job-match-toggle {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background-color: var(--glass-bg);
+  color: var(--ui-text);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-edge-shadow);
+}
+
+.job-match-toggle:hover {
+  border-color: var(--ui-accent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .job-match-bar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: -4px;
+  }
+  .job-match-toggle {
+    align-self: flex-end;
+  }
+}
+
+/* ==========================================================================
+   Job-Match Keyword Chips (found / missing against a job description)
+   ========================================================================== */
+.ats-job-match {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(79, 70, 229, 0.05);
+  border: 1px solid var(--ui-border);
+}
+
+.ats-job-match.empty {
+  background: rgba(102, 126, 234, 0.06);
+}
+
+.ats-job-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ui-text);
+  margin: 0 0 10px;
+}
+
+.ats-job-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--ui-muted, #777);
+  margin: 0;
+}
+
+.ats-job-allgood {
+  font-size: 0.78rem;
+  color: #4caf50;
+  margin: 8px 0 0;
+}
+
+.kw-group {
+  margin-bottom: 8px;
+}
+
+.kw-group-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ui-muted, #777);
+  margin-bottom: 6px;
+}
+
+.kw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 20px;
+  line-height: 1.2;
+}
+
+.kw-found {
+  background: rgba(76, 175, 80, 0.12);
+  color: #2e7d32;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.kw-missing {
+  background: rgba(255, 152, 0, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(255, 152, 0, 0.45);
+}
+
+.kw-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.kw-add:hover {
+  background: currentColor;
+  color: #fff;
+  transform: scale(1.15);
+}
+
+.kw-none {
+  font-size: 0.72rem;
+  color: var(--ui-muted, #999);
+}
+
+[data-theme="dark"] .kw-found {
+  color: #81c784;
+  background: rgba(76, 175, 80, 0.15);
+}
+[data-theme="dark"] .kw-missing {
+  color: #ffb74d;
+  background: rgba(255, 152, 0, 0.15);
+}
+
 /* Responsive: Stack on smaller screens */
 @media (max-width: 1024px) {
   .main-content-wrapper {

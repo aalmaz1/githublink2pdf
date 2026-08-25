@@ -433,9 +433,15 @@ function sortIssuesByPriority(issues: ATSIssue[]): ATSIssue[] {
 
 export class ATSService {
   private jobDescription: string = '';
+  private lastFoundKeywords: string[] = [];
+  private lastMissingKeywords: string[] = [];
 
   setJobDescription(description: string): void {
     this.jobDescription = description;
+  }
+
+  getJobDescription(): string {
+    return this.jobDescription;
   }
 
   analyze(data: ResumeData): ATSResult {
@@ -487,7 +493,13 @@ export class ATSService {
 
     // Sort issues by priority: errors first, then warnings, then success, then info
     const sortedIssues = sortIssuesByPriority(issues);
-    return { score: finalScore, issues: sortedIssues, breakdown };
+    return {
+      score: finalScore,
+      issues: sortedIssues,
+      breakdown,
+      foundKeywords: this.lastFoundKeywords,
+      missingKeywords: this.lastMissingKeywords
+    };
   }
 
   private detectResumeProfile(data: ResumeData): ResumeProfile {
@@ -662,6 +674,11 @@ export class ATSService {
     const resumeText = collectResumeText(data);
     const keywordList = getKeywordList(profile);
     const keywordAnalysis = calculateKeywordMatch(resumeText, this.jobDescription, keywordList);
+    // Surface the concrete found/missing terms for the UI. When a job
+    // description is set, these are the role-specific gaps the user should
+    // close; otherwise they fall back to generic profile vocabulary.
+    this.lastFoundKeywords = keywordAnalysis.foundKeywords;
+    this.lastMissingKeywords = keywordAnalysis.missingKeywords;
     let score = keywordAnalysis.matchPercentage;
     const foundCount = keywordAnalysis.foundKeywords.length;
 

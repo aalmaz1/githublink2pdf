@@ -772,4 +772,43 @@ describe('ATSService', () => {
       expect(formatAdvice?.message).toMatch(/Senior Developer \(Tech Corp\)/);
     });
   });
+
+  describe('job description keyword matching', () => {
+    it('should expose found and missing keywords derived from the job description', () => {
+      const atsService = new ATSService();
+      const resume = createFullResume();
+      atsService.setJobDescription(
+        'Looking for a Senior Software Engineer who knows TypeScript, React, PostgreSQL and Kubernetes.'
+      );
+
+      const result = atsService.analyze(resume);
+
+      expect(result.foundKeywords).toBeDefined();
+      expect(result.foundKeywords!.length).toBeGreaterThan(0);
+      expect(result.foundKeywords!.map(k => k.toLowerCase()))
+        .toEqual(expect.arrayContaining(['typescript', 'react']));
+
+      expect(result.missingKeywords!.map(k => k.toLowerCase())).toContain('kubernetes');
+    });
+
+    it('should report all job keywords as found when the resume covers them', () => {
+      const atsService = new ATSService();
+      const resume = createFullResume();
+      atsService.setJobDescription('We use TypeScript, React and Docker.');
+
+      const result = atsService.analyze(resume);
+
+      expect(result.missingKeywords).toHaveLength(0);
+      expect(result.foundKeywords!.map(k => k.toLowerCase()))
+        .toEqual(expect.arrayContaining(['typescript', 'react', 'docker']));
+    });
+
+    it('should still expose keyword arrays when no job description is set', () => {
+      const atsService = new ATSService();
+      const result = atsService.analyze(createFullResume());
+
+      expect(result.foundKeywords).toBeDefined();
+      expect(result.missingKeywords).toBeDefined();
+    });
+  });
 });

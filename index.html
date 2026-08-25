@@ -131,6 +131,14 @@
         </div>
     </div>
 
+    <!-- Job-matching toolbar: paste a job description for targeted ATS matching -->
+    <div class="job-match-bar">
+        <textarea id="job-description" rows="2"
+            placeholder="Paste the job description here to match your resume against a specific role (optional)"
+            aria-label="Job description"></textarea>
+        <button id="job-match-toggle" class="job-match-toggle" type="button" aria-pressed="false" data-i18n="jobMatchToggle">🎯 Job match</button>
+    </div>
+
     <!-- Floating interface language button (above theme toggle) -->
     <div id="lang-toggle-wrap" class="lang-toggle-wrap">
         <div id="lang-menu" class="lang-menu" role="menu" aria-hidden="true">

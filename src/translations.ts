@@ -38,7 +38,16 @@ export const translations = {
     atsDates: 'Dates',
     atsExperience: 'Experience',
     atsEducation: 'Education',
-    atsSummary: 'Summary'
+    atsSummary: 'Summary',
+    jobDescriptionPlaceholder: 'Paste the job description here to match your resume against a specific role (optional)',
+    jobMatchToggle: 'Job match',
+    jobMatchTitle: 'Match against job description',
+    foundInResume: 'Found in resume',
+    missingFromResume: 'Missing from resume',
+    addToSkills: 'Add to skills',
+    addedToSkills: 'Added to skills',
+    noMissingKeywords: 'All job keywords are already present in your resume',
+    noJobDescription: 'Paste a job description above to see targeted keyword matching against that role.'
   },
   ru: {
     appTitle: 'Github Link2PDF Resume Builder',
@@ -77,7 +86,16 @@ export const translations = {
     atsDates: 'Даты',
     atsExperience: 'Опыт',
     atsEducation: 'Образование',
-    atsSummary: 'Итог'
+    atsSummary: 'Итог',
+    jobDescriptionPlaceholder: 'Вставьте текст вакансии, чтобы сопоставить резюме с конкретной ролью (необязательно)',
+    jobMatchToggle: 'Сопоставление',
+    jobMatchTitle: 'Сопоставление с вакансией',
+    foundInResume: 'Есть в резюме',
+    missingFromResume: 'Не хватает в резюме',
+    addToSkills: 'Добавить в навыки',
+    addedToSkills: 'Добавлено в навыки',
+    noMissingKeywords: 'Все ключевые слова из вакансии уже есть в резюме',
+    noJobDescription: 'Вставьте текст вакансии выше, чтобы увидеть целевое сопоставление ключевых слов.'
   },
   ko: {
     appTitle: 'Github Link2PDF Resume Builder',
@@ -116,7 +134,16 @@ export const translations = {
     atsDates: '날짜',
     atsExperience: '경력',
     atsEducation: '학력',
-    atsSummary: '요약'
+    atsSummary: '요약',
+    jobDescriptionPlaceholder: '특정 직무에 맞춰 이력서를 비교하려면 채용공고를 여기에 붙여넣으세요 (선택 사항)',
+    jobMatchToggle: '직무 매칭',
+    jobMatchTitle: '채용공고와 비교',
+    foundInResume: '이력서에 있음',
+    missingFromResume: '이력서에 없음',
+    addToSkills: '기술에 추가',
+    addedToSkills: '기술에 추가됨',
+    noMissingKeywords: '채용공고의 모든 키워드가 이력서에 이미 있습니다',
+    noJobDescription: '위에 채용공고를 붙여넣으면 해당 직무에 맞는 키워드 매칭을 볼 수 있습니다.'
   }
 } as const;
 

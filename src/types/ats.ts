@@ -30,6 +30,17 @@ export interface ATSResult {
   issues: ATSIssue[];
   breakdown: ATSScoreBreakdown;
   profile?: string;
+  /**
+   * Keywords drawn from a pasted job description that already appear in the
+   * resume. Populated only when a job description was set, so the UI can render
+   * a targeted "found / missing" keyword comparison instead of a generic list.
+   */
+  foundKeywords?: string[];
+  /**
+   * Keywords from the job description that the resume does not yet contain.
+   * These are the concrete gaps the user should address for a specific role.
+   */
+  missingKeywords?: string[];
 }
 
 export type ResumeProfile = 'student' | 'technical' | 'management' | 'design' | 'other';
