@@ -4,6 +4,15 @@ import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('index.html', `file://${process.cwd()}/`), 'utf8');
 
+/**
+ * Integration tests that mount the real index.html in jsdom, boot the actual
+ * app, and exercise the job-description keyword matching end to end.
+ *
+ * NOTE: the demo resume is randomly generated from a fixed skill pool, so the
+ * tests use skills that are (a) never in the demo pool and (b) in the keyword
+ * bank — "jenkins" — as well as one that is NOT in the bank — "prometheus" —
+ * to prove out-of-bank skills are extracted from the job text too.
+ */
 describe('job-description UI integration', () => {
   let dom: JSDOM;
 
@@ -20,9 +29,8 @@ describe('job-description UI integration', () => {
     (global as any).CustomEvent = dom.window.CustomEvent;
     (global as any).navigator = dom.window.navigator;
 
-    // Fresh module instance so module-level state does not leak between tests.
     vi.resetModules();
-    await import('../src/main.ts');
+    await import('../src/main');
     dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   }
 
@@ -30,11 +38,13 @@ describe('job-description UI integration', () => {
     await bootApp();
   });
 
-  it('shows job-match chips after pasting a job description and clicking ATS Check', () => {
+  it('renders found/missing chips and surfaces out-of-bank skills extracted from the job', () => {
     const textarea = dom.window.document.getElementById('job-description') as HTMLTextAreaElement;
     expect(textarea).toBeTruthy();
 
-    textarea.value = 'We need TypeScript, Kafka, Terraform, Prometheus and Rust engineers.';
+    // "typescript" is in the demo resume; "jenkins" is in the bank but not the
+    // resume; "prometheus" is not even in the bank — it must be extracted.
+    textarea.value = 'We need TypeScript, Jenkins and Prometheus engineers.';
     textarea.dispatchEvent(new dom.window.Event('input'));
 
     (dom.window.document.getElementById('ats-check') as HTMLButtonElement).click();
@@ -42,30 +52,37 @@ describe('job-description UI integration', () => {
     const panel = dom.window.document.getElementById('ats-panel');
     expect(panel!.classList.contains('hidden')).toBe(false);
 
-    const content = dom.window.document.querySelector('.ats-panel-content') as HTMLElement;
-    // eslint-disable-next-line no-console
-    console.log('PANEL HTML:\n', content?.innerHTML);
+    const content = dom.window.document.querySelector('.ats-panel-content');
+    expect(content!.querySelector('.ats-job-match')).toBeTruthy();
 
-    const matchBlock = content!.querySelector('.ats-job-match');
-    expect(matchBlock).toBeTruthy();
-    expect(content!.querySelectorAll('.kw-missing').length).toBeGreaterThan(0);
-    expect(content!.querySelectorAll('.kw-found').length).toBeGreaterThan(0);
+    // Chip textContent also includes the "+" button, so read only the text
+    // nodes directly under the chip to get the bare keyword.
+    const chipText = (chip: Element): string =>
+      Array.from(chip.childNodes)
+        .filter(n => n.nodeType === 3 /* TEXT_NODE */)
+        .map(n => n.textContent ?? '')
+        .join('')
+        .trim();
+    const foundTexts = Array.from(content!.querySelectorAll('.kw-found')).map(chipText);
+    const missingTexts = Array.from(content!.querySelectorAll('.kw-missing')).map(chipText);
+    expect(foundTexts).toContain('typescript');
+    expect(missingTexts).toContain('jenkins');
+    expect(missingTexts).toContain('prometheus');
   });
 
   it('adds a missing keyword to the Skills section when its + button is clicked', () => {
     const textarea = dom.window.document.getElementById('job-description') as HTMLTextAreaElement;
-    textarea.value = 'We need TypeScript and Terraform engineers.';
+    textarea.value = 'We need TypeScript and Jenkins engineers.';
     textarea.dispatchEvent(new dom.window.Event('input'));
 
     (dom.window.document.getElementById('ats-check') as HTMLButtonElement).click();
 
-    const missingBtn = dom.window.document.querySelector<HTMLButtonElement>('[data-add-keyword="terraform"]');
+    const missingBtn = dom.window.document.querySelector<HTMLButtonElement>('[data-add-keyword="jenkins"]');
     expect(missingBtn).toBeTruthy();
     missingBtn!.click();
 
-    // The skill should now appear in the rendered resume.
     const resumeText = dom.window.document.getElementById('resume-container')!.textContent ?? '';
-    expect(resumeText.toLowerCase()).toContain('terraform');
+    expect(resumeText.toLowerCase()).toContain('jenkins');
   });
 
   it('shows a hint instead of chips when no job description is pasted', () => {
