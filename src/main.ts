@@ -26,6 +26,9 @@ const LANG_FLAGS: Record<Lang, string> = {
 const atsService = new ATSService();
 const exportService = new ExportService();
 
+/** The job description the user pasted, kept so re-renders don't lose it. */
+let currentJobDescription = '';
+
 const defaultData: ResumeData = generateDemoProfile();
 
 /**
@@ -82,6 +85,8 @@ function updateInterfaceLanguage(lang: Lang): void {
   // Update placeholder specifically
   const githubInput = document.getElementById('github-url') as HTMLInputElement;
   if (githubInput) githubInput.placeholder = t.githubPlaceholder;
+  const jobDescInput = document.getElementById('job-description') as HTMLTextAreaElement | null;
+  if (jobDescInput) jobDescInput.placeholder = t.jobDescriptionPlaceholder;
   
   // Update labels with data-i18n attribute
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -463,6 +468,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ATS Check Button - Toggle panel visibility
   document.getElementById('ats-check')?.addEventListener('click', () => {
     logger.debug('ATS Check clicked');
+    // Pick up the latest pasted text even if no input event fired (e.g. a
+    // paste through the browser menu) before running the analysis.
+    const jobDescInput = document.getElementById('job-description') as HTMLTextAreaElement | null;
+    if (jobDescInput) {
+      currentJobDescription = jobDescInput.value;
+      atsService.setJobDescription(currentJobDescription);
+    }
     const liveData = getCurrentResumeData();
     logger.debug('currentResumeData:', liveData);
     
@@ -498,6 +510,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     showATSResultPanel(result);
   });
+
+  // Job-description matching: feed pasted text into the ATS engine live so the
+  // next analysis runs against a specific role instead of a generic vocabulary.
+  const jobDescInput = document.getElementById('job-description') as HTMLTextAreaElement | null;
+  if (jobDescInput) {
+    jobDescInput.value = currentJobDescription;
+    jobDescInput.addEventListener('input', () => {
+      currentJobDescription = jobDescInput.value;
+      atsService.setJobDescription(currentJobDescription);
+    });
+  }
+
+  // Collapse/expand the job-matching bar so it stays out of the way.
+  const jobToggle = document.getElementById('job-match-toggle');
+  const jobBar = document.querySelector<HTMLElement>('.job-match-bar');
+  if (jobToggle && jobBar) {
+    jobToggle.addEventListener('click', () => {
+      const collapsed = jobBar.classList.toggle('collapsed');
+      jobToggle.setAttribute('aria-pressed', String(collapsed));
+    });
+  }
 });
 
 /**
@@ -591,6 +624,9 @@ function showATSResultPanel(result: ATSResult): void {
     </div>
   ` : '';
   
+  // Build the targeted keyword-match block against a pasted job description.
+  const jobMatchHtml = buildJobMatchHtml(result);
+  
   // Build panel content
   content.innerHTML = `
     <div class="ats-panel-header">
@@ -598,6 +634,7 @@ function showATSResultPanel(result: ATSResult): void {
       <span class="ats-panel-score ${getScoreClass(result.score)}">${result.score} / 100</span>
     </div>
     ${breakdownHtml}
+    ${jobMatchHtml}
     <div class="ats-panel-issues">
       <h4 class="ats-issues-title">\u{1F4CB} ${tr(currentLang, 'atsRecommendationsTitle')}</h4>
       ${result.issues.map(issue => `
@@ -608,8 +645,92 @@ function showATSResultPanel(result: ATSResult): void {
       `).join('')}
     </div>
   `;
+
+  // Delegated handler: clicking a "+" on a missing keyword appends it to skills.
+  // Listener is attached per render because the panel content is rebuilt.
+  content.querySelectorAll<HTMLButtonElement>('[data-add-keyword]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      addKeywordToResume(btn.dataset.addKeyword ?? '');
+    });
+  });
   
   panel.classList.remove('hidden');
+}
+
+/** Escape a string for safe insertion into innerHTML. */
+function escapeHtml(value: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  };
+  return value.replace(/[&<>"']/g, ch => map[ch]);
+}
+
+/**
+ * Renders the "found / missing" keyword chips against a pasted job
+ * description. Empty job → a hint; otherwise green chips for skills already
+ * in the resume and orange chips (with a "+ add" button) for the gaps.
+ */
+function buildJobMatchHtml(result: ATSResult): string {
+  if (!currentJobDescription.trim()) {
+    return `
+      <div class="ats-job-match empty">
+        <p class="ats-job-hint">${escapeHtml(tr(currentLang, 'noJobDescription'))}</p>
+      </div>`;
+  }
+
+  const found = result.foundKeywords ?? [];
+  const missing = result.missingKeywords ?? [];
+
+  const foundChips = found
+    .map(k => `<span class="kw-chip kw-found">${escapeHtml(k)}</span>`)
+    .join('');
+
+  const missingBlock = missing.length > 0
+    ? `<div class="kw-group">
+        <div class="kw-group-label">${escapeHtml(tr(currentLang, 'missingFromResume'))} (${missing.length})</div>
+        <div class="kw-chips">
+          ${missing.map(k => `
+            <span class="kw-chip kw-missing">
+              ${escapeHtml(k)}
+              <button type="button" class="kw-add" data-add-keyword="${escapeHtml(k)}"
+                title="${escapeHtml(tr(currentLang, 'addToSkills'))}" aria-label="${escapeHtml(tr(currentLang, 'addToSkills'))}: ${escapeHtml(k)}">+</button>
+            </span>`).join('')}
+        </div>
+      </div>`
+    : `<p class="ats-job-allgood">\u{2705} ${escapeHtml(tr(currentLang, 'noMissingKeywords'))}</p>`;
+
+  return `
+    <div class="ats-job-match">
+      <h4 class="ats-job-title">\u{1F3AF} ${escapeHtml(tr(currentLang, 'jobMatchTitle'))}</h4>
+      <div class="kw-group">
+        <div class="kw-group-label">${escapeHtml(tr(currentLang, 'foundInResume'))} (${found.length})</div>
+        <div class="kw-chips">${foundChips || '<span class="kw-none">—</span>'}</div>
+      </div>
+      ${missingBlock}
+    </div>`;
+}
+
+/**
+ * Add a missing job keyword to the Skills section and re-run the analysis so
+ * the panel and score reflect the change immediately.
+ */
+function addKeywordToResume(keyword: string): void {
+  const container = document.getElementById('resume-container');
+  if (!container || !currentResumeData || !keyword.trim()) return;
+
+  const data = getCurrentResumeData();
+  if (!data) return;
+  const skills = data.skills ?? [];
+  const lowerKeyword = keyword.toLowerCase();
+  const exists = skills.some(s => typeof s === 'string' && s.toLowerCase() === lowerKeyword);
+  if (!exists) {
+    skills.push(keyword);
+    data.skills = skills;
+  }
+
+  updateUI(data, container);
+  showATSResultPanel(atsService.analyze(data));
+  showNotification(`${tr(currentLang, 'addedToSkills')}: ${keyword}`, 'success');
 }
 
 /**

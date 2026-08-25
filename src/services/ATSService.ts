@@ -189,6 +189,61 @@ function expandKeywords(keywords: string[]): Set<string> {
   return expanded;
 }
 
+/**
+ * Words that frequently appear in job postings but are not skills. They must
+ * never surface as "missing keywords" when scanning a job description for
+ * role-specific skill gaps.
+ */
+const JOB_STOPWORDS = new Set([
+  'the', 'and', 'our', 'your', 'you', 'we', 'for', 'with', 'role', 'position', 'job', 'about',
+  'this', 'that', 'are', 'will', 'have', 'has', 'been', 'being', 'experience', 'skills', 'skill',
+  'ability', 'knowledge', 'responsibilities', 'responsibility', 'requirements', 'requirement',
+  'qualifications', 'qualification', 'candidate', 'candidates', 'strong', 'years', 'year', 'plus',
+  'nice', 'location', 'remote', 'onsite', 'hybrid', 'team', 'working', 'work', 'would', 'should',
+  'must', 'able', 'best', 'looking', 'someone', 'who', 'can', 'help', 'join', 'grow', 'company',
+  'tech', 'technology', 'technologies', 'engineering', 'senior', 'engineer', 'developer', 'manager',
+  'lead', 'junior', 'full', 'stack', 'day', 'days', 'week', 'based', 'preferred', 'required',
+  'additional', 'etc', 'using', 'used', 'use', 'build', 'built', 'design', 'develop', 'development',
+  'support', 'good', 'great', 'new', 'key', 'areas', 'incl', 'include', 'including', 'team', 'time',
+  'code', 'coding', 'systems', 'system', 'platform', 'platforms', 'applications', 'application',
+  'environment', 'methodologies', 'methodology', 'communication', 'collaboration', 'analytical',
+  'problem', 'solving', 'relational', 'relationals', 'functional', 'understanding', 'working',
+  'familiarity', 'preferred', 'bonus', 'skills', 'minimum', 'degree', 'bachelor', 'masters',
+  'equivalent', 'related', 'field', 'industry', 'software', 'products', 'product', 'services',
+  'service', 'solutions', 'solution', 'customer', 'customers', 'client', 'clients', 'user', 'users',
+  'data', 'cloud', 'infrastructure', 'secure', 'security', 'performance', 'reliability', 'scalability',
+  'continuous', 'integration', 'delivery', 'deployment', 'automation', 'testing', 'quality',
+  'ownership', 'mentorship', 'growth', 'business', 'technical', 'problem-solving'
+]);
+
+/**
+ * Pulls additional candidate skill terms out of a job description that are not
+ * in the built-in keyword bank. Without this, a job explicitly asking for a
+ * tool outside the bank (e.g. "Kafka", "Prometheus") would be silently ignored.
+ *
+ * We only keep terms that look like product/tech names (capitalised words,
+ * camelCase tokens, or tokens containing digits like "C++" / ".NET") and that
+ * survive a stopword filter, so generic English from a posting never shows up
+ * as a missing skill.
+ */
+function extractJobCandidates(jobText: string): string[] {
+  const tokens = jobText.split(/[^A-Za-z0-9+.#-]+/)
+    .map(t => t.replace(/^\.+|\.+$/g, '')); // trim stray sentence-end dots
+  const out: string[] = [];
+  for (const tok of tokens) {
+    if (tok.length < 3) continue;
+    const lower = tok.toLowerCase();
+    if (JOB_STOPWORDS.has(lower)) continue;
+    const hasDigit = /[0-9]/.test(tok);
+    const isCapitalised = tok[0] === tok[0].toUpperCase() && tok[0] !== tok[0].toLowerCase();
+    const isCamelCase = /[a-z][A-Z]/.test(tok.slice(1)) || /[A-Z][a-z]/.test(tok);
+    if (hasDigit || isCapitalised || isCamelCase) {
+      out.push(lower);
+    }
+  }
+  return Array.from(new Set(out));
+}
+
 function calculateKeywordMatch(resumeText: string, jobDescription: string | undefined, keywords: string[]): {
   foundKeywords: string[];
   missingKeywords: string[];
@@ -202,7 +257,11 @@ function calculateKeywordMatch(resumeText: string, jobDescription: string | unde
   if (jobDescription && jobDescription.trim().length > 0) {
     const lowerJob = jobDescription.toLowerCase();
     const jobKeywords = lowerKeywords.filter(keyword => containsTerm(lowerJob, keyword));
-    const selectedKeywords = jobKeywords.length > 0 ? jobKeywords : lowerKeywords;
+    // Merge bank keywords present in the job with skills extracted straight
+    // from the posting text, so out-of-bank tools are surfaced too.
+    const extraCandidates = extractJobCandidates(jobDescription)
+      .filter(cand => !jobKeywords.some(k => k.toLowerCase() === cand));
+    const selectedKeywords = Array.from(new Set([...jobKeywords, ...extraCandidates]));
     const found = selectedKeywords.filter(keyword => containsTerm(lowerResume, keyword));
     return {
       foundKeywords: found,
@@ -433,9 +492,15 @@ function sortIssuesByPriority(issues: ATSIssue[]): ATSIssue[] {
 
 export class ATSService {
   private jobDescription: string = '';
+  private lastFoundKeywords: string[] = [];
+  private lastMissingKeywords: string[] = [];
 
   setJobDescription(description: string): void {
     this.jobDescription = description;
+  }
+
+  getJobDescription(): string {
+    return this.jobDescription;
   }
 
   analyze(data: ResumeData): ATSResult {
@@ -487,7 +552,13 @@ export class ATSService {
 
     // Sort issues by priority: errors first, then warnings, then success, then info
     const sortedIssues = sortIssuesByPriority(issues);
-    return { score: finalScore, issues: sortedIssues, breakdown };
+    return {
+      score: finalScore,
+      issues: sortedIssues,
+      breakdown,
+      foundKeywords: this.lastFoundKeywords,
+      missingKeywords: this.lastMissingKeywords
+    };
   }
 
   private detectResumeProfile(data: ResumeData): ResumeProfile {
@@ -662,6 +733,11 @@ export class ATSService {
     const resumeText = collectResumeText(data);
     const keywordList = getKeywordList(profile);
     const keywordAnalysis = calculateKeywordMatch(resumeText, this.jobDescription, keywordList);
+    // Surface the concrete found/missing terms for the UI. When a job
+    // description is set, these are the role-specific gaps the user should
+    // close; otherwise they fall back to generic profile vocabulary.
+    this.lastFoundKeywords = keywordAnalysis.foundKeywords;
+    this.lastMissingKeywords = keywordAnalysis.missingKeywords;
     let score = keywordAnalysis.matchPercentage;
     const foundCount = keywordAnalysis.foundKeywords.length;
 
