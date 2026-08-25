@@ -15,6 +15,14 @@ let currentResumeData: ResumeData | null = null;
 let currentTextAlign: 'left' | 'center' | 'justify' = 'left';
 let currentLang: Lang = defaultLang;
 let currentDesign: string = 'classic'; // Track current design
+let langMenuOpen = false;
+
+/** Flags used by the floating language picker (menu shows flags, not words). */
+const LANG_FLAGS: Record<Lang, string> = {
+  en: '🇬🇧',
+  ru: '🇷🇺',
+  ko: '🇰🇷'
+};
 const atsService = new ATSService();
 const exportService = new ExportService();
 
@@ -83,6 +91,16 @@ function updateInterfaceLanguage(lang: Lang): void {
     }
   });
   
+  // Keep the floating flag button and its accessible labels in sync
+  const langToggle = document.getElementById('lang-toggle-floating');
+  if (langToggle) {
+    langToggle.textContent = LANG_FLAGS[lang];
+    langToggle.setAttribute('aria-label', t.languageLabel);
+  }
+  document.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(option => {
+    option.classList.toggle('active', option.dataset.lang === lang);
+  });
+
   // Save to localStorage
   localStorage.setItem('resume-lang', lang);
 }
@@ -297,15 +315,51 @@ document.addEventListener('DOMContentLoaded', () => {
     themeToggleFloatingBtn.textContent = isDarkTheme ? '☀️' : '🌙';
   }
 
-  // Language Selector
-  const langSelect = document.getElementById('lang-select') as HTMLSelectElement;
-  if (langSelect) {
-    langSelect.value = currentLang;
-    langSelect.addEventListener('change', (e) => {
-      const newLang = (e.target as HTMLSelectElement).value as Lang;
-      updateInterfaceLanguage(newLang);
-    });
+  // Floating language picker: round button + flag menu that slides upward
+  const langWrap = document.getElementById('lang-toggle-wrap');
+  const langToggle = document.getElementById('lang-toggle-floating');
+  const langMenu = document.getElementById('lang-menu');
+  const langToggleLabel = translations[currentLang].languageLabel;
+  if (langToggle) {
+    langToggle.textContent = LANG_FLAGS[currentLang];
+    langToggle.setAttribute('aria-label', langToggleLabel);
   }
+
+  const setLangMenuOpen = (open: boolean): void => {
+    langMenuOpen = open;
+    langMenu?.classList.toggle('open', open);
+    if (langMenu) langMenu.setAttribute('aria-hidden', String(!open));
+    langToggle?.setAttribute('aria-expanded', String(open));
+  };
+
+  langToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setLangMenuOpen(!langMenuOpen);
+  });
+
+  langMenu?.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(option => {
+    option.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const newLang = option.dataset.lang as Lang | undefined;
+      if (newLang && ['en', 'ru', 'ko'].includes(newLang)) {
+        updateInterfaceLanguage(newLang);
+      }
+      setLangMenuOpen(false);
+    });
+  });
+
+  // Close the menu when clicking outside or pressing Escape
+  document.addEventListener('click', (event) => {
+    if (langMenuOpen && (!langWrap || !langWrap.contains(event.target as Node))) {
+      setLangMenuOpen(false);
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && langMenuOpen) {
+      setLangMenuOpen(false);
+      langToggle?.focus();
+    }
+  });
 
   // Initialize Design Selector with all 30 designs
   initializeDesignSelector();
