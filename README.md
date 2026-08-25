@@ -7,7 +7,7 @@ A client-side resume builder that turns a GitHub profile into an editable, ATS-a
 - **GitHub import** — enter a username or profile URL; the app loads profile data, top repositories, languages, and topics, then drafts experience bullets from that metadata
 - **30 resume designs** — professional, creative, minimal, tech, business, elegant, and bold templates, plus a random-design button
 - **Inline editing** — click any text on the preview to change it (`contenteditable`)
-- **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education (plus an overall summary verdict), with a side panel of recommendations
+- **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education (plus an overall summary verdict), with a side panel of concrete recommendations. Each criterion shows its score and its labelled **weight** (share of the total), so `90% · вес 26%` is never confusing
 - **Export** — A4 PDF via html2pdf.js, or download the resume as JSON
 - **UI** — interface chrome in English, Russian, and Korean; light/dark theme, text alignment; preferences stored in `localStorage`
 - **Demo profile** — a generated sample resume loads immediately so you can try designs without an import

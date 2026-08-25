@@ -214,7 +214,10 @@ function calculateKeywordMatch(resumeText: string, jobDescription: string | unde
   const found = lowerKeywords.filter(keyword => containsTerm(lowerResume, keyword));
   return {
     foundKeywords: found.slice(0, 20),
-    missingKeywords: lowerKeywords.filter(keyword => !found.includes(keyword)).slice(0, 10),
+    // Keep a generous tail of missing keywords so recommendations can name the
+    // most valuable core terms (Docker, AWS, SQL) rather than the first few
+    // languages alphabetically. The UI only ever prints a short slice of this.
+    missingKeywords: lowerKeywords.filter(keyword => !found.includes(keyword)).slice(0, 50),
     matchPercentage: Math.min(100, Math.round((found.length / Math.min(lowerKeywords.length, 20)) * 100))
   };
 }
@@ -236,6 +239,98 @@ function hasProjectEvidence(data: ResumeData): boolean {
 
   const text = collectResumeText(data).toLowerCase();
   return /project|portfolio|capstone|prototype|research|study|coursework|user research|usability/.test(text);
+}
+
+/**
+ * A short, human-readable name for a resume entry ("Senior Developer (Tech Corp)")
+ * so recommendations can point at the exact row the user needs to fix.
+ */
+function entryLabel(entity: TimeBoundedEntity): string {
+  const role = (entity.role || '').trim();
+  const institution = (entity.institution || '').trim();
+  return role && institution ? `${role} (${institution})` : role || institution || 'Untitled entry';
+}
+
+/**
+ * The most valuable keywords to suggest for a profile. These are deliberately
+ * short and common so an ATS recommendation never reads as a random shopping
+ * list of every synonym in the keyword bank.
+ */
+function getCoreKeywordShortlist(profile: ResumeProfile): string[] {
+  switch (profile) {
+    case 'management':
+      return ['leadership', 'strategy', 'budget', 'ROI', 'KPIs', 'stakeholder', 'project management'];
+    case 'design':
+      return ['Figma', 'prototyping', 'wireframing', 'user research', 'usability testing', 'UI/UX', 'design system'];
+    case 'student':
+      return ['TypeScript', 'React', 'Node.js', 'SQL', 'Git', 'Docker', 'Python'];
+    case 'other':
+      return ['communication', 'collaboration', 'project management', 'analytics', 'process', 'leadership'];
+    default:
+      return ['TypeScript', 'React', 'Node.js', 'SQL', 'Docker', 'AWS', 'CI/CD', 'REST', 'Git'];
+  }
+}
+
+/**
+ * Collect the visible skill names from the Skills section. Used to turn a
+ * generic "make it more keyword-rich" warning into a concrete suggestion drawn
+ * from skills the user already has but has not surfaced in the headline.
+ */
+function getSkillTokens(data: ResumeData): string[] {
+  const tokens: string[] = [];
+  for (const skill of data.skills || []) {
+    if (typeof skill === 'string') {
+      tokens.push(skill);
+    } else if (Array.isArray(skill.items)) {
+      tokens.push(...skill.items);
+    }
+  }
+  return tokens.map(token => token.trim()).filter(Boolean);
+}
+
+/**
+ * Choose up to `count` tracked keywords that the resume does not contain yet,
+ * preferring ones that are already listed in the Skills section so the advice
+ * stays relevant to the person's actual stack.
+ */
+function suggestMissingKeywords(data: ResumeData, profile: ResumeProfile, missingKeywords: string[], count = 5): string[] {
+  const missing = new Set(
+    missingKeywords.map(keyword => keyword.trim().toLowerCase()).filter(Boolean)
+  );
+  const skillTokens = getSkillTokens(data);
+  const preferred: string[] = [];
+  const rest: string[] = [];
+
+  for (const keyword of getCoreKeywordShortlist(profile)) {
+    if (missing.has(keyword.toLowerCase())) {
+      const isInSkills = skillTokens.some(skill => containsTerm(skill, keyword));
+      (isInSkills ? preferred : rest).push(keyword);
+    }
+  }
+
+  const suggestions = [...preferred, ...rest];
+  if (suggestions.length < count) {
+    for (const keyword of missingKeywords) {
+      if (suggestions.some(item => item.toLowerCase() === keyword.toLowerCase())) continue;
+      suggestions.push(keyword);
+      if (suggestions.length >= count) break;
+    }
+  }
+  return suggestions.slice(0, count);
+}
+
+/**
+ * Show the resume entries that fail a particular description check. This is
+ * what turns "add numbers to your bullets" into
+ * "add numbers to Senior Developer (Tech Corp)".
+ */
+function entriesMissingCheck(
+  entities: TimeBoundedEntity[],
+  predicate: (description: string) => boolean
+): string[] {
+  return entities
+    .filter(entity => (entity.description || []).some(description => !predicate(description)))
+    .map(entryLabel);
 }
 
 function getKeywordList(profile: ResumeProfile): string[] {
@@ -510,7 +605,7 @@ export class ATSService {
 
     if (data.personal.email && data.personal.email.trim().length > 0) {
       if (isValidEmail(data.personal.email)) {
-        score += 30;
+        score += 35;
         issues.push({ type: 'success', message: 'Email is valid', category: 'contacts' });
       } else {
         issues.push({ type: 'error', message: 'Email is invalid', category: 'contacts' });
@@ -520,31 +615,39 @@ export class ATSService {
     }
 
     if (data.personal.phone && data.personal.phone.trim().length > 0) {
-      score += 20;
+      score += 30;
       issues.push({ type: 'success', message: 'Phone is provided', category: 'contacts' });
     } else {
       issues.push({ type: 'error', message: 'Phone is missing', category: 'contacts' });
     }
 
-    if (data.personal.linkedin && data.personal.linkedin.trim().length > 0) {
+    if (data.personal.name && data.personal.name.trim().length > 0) {
       score += 15;
-      issues.push({ type: 'success', message: 'LinkedIn is provided', category: 'contacts' });
+      issues.push({ type: 'success', message: 'Full name is provided', category: 'contacts' });
     } else {
-      // Recommended, not required: no ATS rejects a resume for lacking a
-      // LinkedIn URL, so this must not read as a blocking error.
-      issues.push({ type: 'warning', message: 'Missing LinkedIn', category: 'contacts' });
-    }
-
-    if (data.personal.github && data.personal.github.trim().length > 0) {
-      score += 15;
-      issues.push({ type: 'success', message: 'GitHub is provided', category: 'contacts' });
+      issues.push({ type: 'error', message: 'Name is missing', category: 'contacts' });
     }
 
     if (data.personal.location && data.personal.location.trim().length > 0) {
       score += 20;
       issues.push({ type: 'success', message: 'Location is provided', category: 'contacts' });
     } else {
+      // Recommended, not required: some resumes intentionally leave this out.
       issues.push({ type: 'warning', message: 'Location is missing (recommended)', category: 'contacts' });
+    }
+
+    // Recommended optional links. They add proof, but never block a resume, so
+    // a complete contact block still reaches 100 without them.
+    if (data.personal.linkedin && data.personal.linkedin.trim().length > 0) {
+      issues.push({ type: 'success', message: 'LinkedIn is provided', category: 'contacts' });
+    } else {
+      issues.push({ type: 'warning', message: 'Missing LinkedIn', category: 'contacts' });
+    }
+
+    if (data.personal.github && data.personal.github.trim().length > 0) {
+      issues.push({ type: 'success', message: 'GitHub is provided', category: 'contacts' });
+    } else {
+      issues.push({ type: 'warning', message: 'Missing GitHub link (recommended)', category: 'contacts' });
     }
 
     if (contactMissing) {
@@ -576,10 +679,13 @@ export class ATSService {
         });
       }
     } else {
+      // Suggestions are computed from the keywords the resume is actually
+      // missing, and prefer terms already in the Skills section, so the
+      // recommendation points at concrete next steps instead of generic advice.
+      const suggestions = suggestMissingKeywords(data, profile, keywordAnalysis.missingKeywords);
+      const suggestionText = suggestions.length > 0 ? ` Try adding: ${suggestions.join(', ')}` : '';
+
       if (profile === 'management' || profile === 'other') {
-        // The advice has to name the vocabulary this profile is actually
-        // scored against, otherwise the user is asked to add keywords that
-        // earn them nothing.
         const advice = profile === 'management'
           ? 'Add leadership, strategy, budget or stakeholder terms'
           : 'Name the tools, methods and domain terms used in your field';
@@ -594,14 +700,14 @@ export class ATSService {
         } else if (foundCount >= 1) {
           issues.push({
             type: 'warning',
-            message: `Only ${foundCount} relevant keyword${foundCount > 1 ? 's' : ''} found. ${advice}`,
+            message: `Only ${foundCount} relevant keyword${foundCount > 1 ? 's' : ''} found. ${advice}${suggestionText}`,
             category: 'keywords'
           });
           score = Math.max(score, 50);
         } else {
           issues.push({
             type: 'warning',
-            message: `No role-relevant keywords found. ${advice}`,
+            message: `No role-relevant keywords found. ${advice}${suggestionText}`,
             category: 'keywords'
           });
           score = Math.min(score, 40);
@@ -624,7 +730,7 @@ export class ATSService {
         } else {
           issues.push({
             type: 'warning',
-            message: 'Add UX/UI and product design keywords like Figma, prototyping, wireframing, user research',
+            message: `Add UX/UI and product design keywords like Figma, prototyping, wireframing, user research${suggestionText}`,
             category: 'keywords'
           });
           score = Math.min(score, 50);
@@ -647,13 +753,13 @@ export class ATSService {
         } else if (foundCount >= 1) {
           issues.push({
             type: 'warning',
-            message: `Only ${foundCount} technical keywords found. Add more technical keywords to improve ATS score`,
+            message: `Only ${foundCount} technical keywords found. Add more technical keywords to improve ATS score${suggestionText}`,
             category: 'keywords'
           });
         } else {
           issues.push({
             type: 'error',
-            message: 'No technical keywords found. Add more technical keywords to your resume',
+            message: `No technical keywords found. Add more technical keywords to your resume${suggestionText}`,
             category: 'keywords'
           });
           score = Math.min(score, 30);
@@ -662,7 +768,7 @@ export class ATSService {
         if (foundCount < 3) {
           issues.push({
             type: 'warning',
-            message: 'Add more technical keywords related to your field',
+            message: `Add more technical keywords related to your field${suggestionText}`,
             category: 'keywords'
           });
         }
@@ -679,15 +785,23 @@ export class ATSService {
     // --- Action verbs ---
     if (!hasActionVerbs(fullText)) {
       score -= 15;
+      const verbEntries = entriesMissingCheck(data.experience || [], hasActionVerbs);
+      const verbAdvice = verbEntries.length > 0
+        ? ` Rewrite the bullets for: ${verbEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'warning',
-        message: 'Use action verbs (developed, created, implemented) in experience descriptions',
+        message: `Use action verbs (developed, created, implemented) in experience descriptions${verbAdvice}`,
         category: 'format'
       });
     } else {
+      const verbEntries = entriesMissingCheck(data.experience || [], hasActionVerbs);
+      const verbAdvice = verbEntries.length > 0
+        ? ` Still need a leading verb in: ${verbEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'success',
-        message: 'Action verbs used in experience descriptions',
+        message: `Action verbs used in experience descriptions${verbAdvice}`,
         category: 'format'
       });
     }
@@ -734,6 +848,14 @@ export class ATSService {
     const quantCount = countQuantifiableAchievements(allDescriptions);
     const totalDesc = allDescriptions.length;
 
+    const quantMissingEntries = entriesMissingCheck(
+      [...(data.experience || []), ...(data.projects || [])],
+      isQuantified
+    );
+    const quantAdvice = quantMissingEntries.length > 0
+      ? ` Add numbers, %, or $ to: ${quantMissingEntries.slice(0, 3).join(', ')}`
+      : '';
+
     if (totalDesc >= 2 && quantCount >= Math.ceil(totalDesc / 2)) {
       issues.push({
         type: 'success',
@@ -743,14 +865,14 @@ export class ATSService {
     } else if (quantCount > 0) {
       issues.push({
         type: 'warning',
-        message: 'Only ' + quantCount + ' quantifiable achievements found. Add metrics (numbers, %, $) to strengthen impact',
+        message: 'Only ' + quantCount + ' of ' + totalDesc + ' bullets contain metrics.' + quantAdvice,
         category: 'format'
       });
       if (score >= 70) score -= 10;
     } else if (totalDesc > 0) {
       issues.push({
         type: 'warning',
-        message: 'No quantifiable achievements found. Use numbers, percentages, and metrics to show impact',
+        message: 'No quantifiable achievements found. Use numbers, percentages, and metrics to show impact' + quantAdvice,
         category: 'format'
       });
       score -= 15;
@@ -805,9 +927,15 @@ export class ATSService {
     // --- All entries should have dates ---
     if (totalMissing > 0) {
       score -= totalMissing * 15;
+      const missingLabels = allEntities
+        .filter(entity => !entity.period || entity.period.trim().length === 0)
+        .map(entryLabel);
+      const advice = missingLabels.length > 0
+        ? ' Add dates to: ' + missingLabels.slice(0, 3).join(', ')
+        : '';
       issues.push({
         type: 'error',
-        message: 'Missing date period on ' + totalMissing + ' entr' + (totalMissing > 1 ? 'ies' : 'y'),
+        message: `Missing date period on ${totalMissing} entr${totalMissing > 1 ? 'ies' : 'y'}.${advice}`,
         category: 'dates'
       });
     }
@@ -908,11 +1036,33 @@ export class ATSService {
       isOutOfOrder(parsedExperience) ||
       isOutOfOrder(parsedEducation) ||
       isOutOfOrder(parsedProjects);
+
+    // Name the first entry that sits below a more recent one, so the user
+    // edits the right line rather than reordering blindly.
+    const findOutOfOrderLabel = (entities: TimeBoundedEntity[]): string | null => {
+      const withPeriod = entities
+        .filter(entity => entity.period && entity.period.trim())
+        .map(entity => ({ entity, start: parsePeriodRange(entity.period).start.year }));
+      for (let i = 0; i < withPeriod.length - 1; i++) {
+        const current = withPeriod[i];
+        const next = withPeriod[i + 1];
+        if (current.start !== null && next.start !== null && current.start < next.start) {
+          return entryLabel(current.entity);
+        }
+      }
+      return null;
+    };
+    const outOfOrderLabel =
+      findOutOfOrderLabel(data.experience || []) ||
+      findOutOfOrderLabel(data.education || []) ||
+      findOutOfOrderLabel(data.projects || []);
+
     if (outOfOrder) {
       score -= 20;
+      const label = outOfOrderLabel ? ` Move "${outOfOrderLabel}" below more recent entries` : '';
       issues.push({
         type: 'error',
-        message: 'Entries not in reverse chronological order. Start with most recent',
+        message: `Entries not in reverse chronological order. Start with most recent.${label}`,
         category: 'dates'
       });
     }
@@ -998,9 +1148,15 @@ export class ATSService {
     }
 
     if (totalDescriptions === 0) {
+      const emptyEntries = data.experience
+        .filter(entry => (entry.description || []).length === 0)
+        .map(entryLabel);
+      const advice = emptyEntries.length > 0
+        ? ` Add bullets to: ${emptyEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'error',
-        message: 'Experience entries have no descriptions',
+        message: `Experience entries have no descriptions${advice}`,
         category: 'experience'
       });
       return Math.max(0, score - 30);
@@ -1013,14 +1169,18 @@ export class ATSService {
       score += 20;
       issues.push({
         type: 'success',
-        message: 'Most descriptions start with strong action verbs',
+        message: `Most descriptions start with strong action verbs (${withActionVerbs}/${totalDescriptions})`,
         category: 'experience'
       });
     } else if (withActionVerbs > 0) {
       score += 10;
+      const verbEntries = entriesMissingCheck(data.experience, hasActionVerbs);
+      const verbAdvice = verbEntries.length > 0
+        ? ` Start every bullet with a verb, e.g. in: ${verbEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'warning',
-        message: 'Only ' + withActionVerbs + '/' + totalDescriptions + ' descriptions use action verbs - aim for all',
+        message: `Only ${withActionVerbs}/${totalDescriptions} descriptions use action verbs - aim for all.${verbAdvice}`,
         category: 'experience'
       });
     }
@@ -1035,15 +1195,23 @@ export class ATSService {
       });
     } else if (withQuantified > 0) {
       score += 10;
+      const metricEntries = entriesMissingCheck(data.experience, isQuantified);
+      const metricAdvice = metricEntries.length > 0
+        ? ` Add a number, %, or $ to: ${metricEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'warning',
-        message: 'Only ' + withQuantified + '/' + totalDescriptions + ' descriptions have metrics. Add numbers to show impact',
+        message: `Only ${withQuantified}/${totalDescriptions} descriptions have metrics.${metricAdvice}`,
         category: 'experience'
       });
     } else if (totalDescriptions > 0) {
+      const metricEntries = entriesMissingCheck(data.experience, isQuantified);
+      const metricAdvice = metricEntries.length > 0
+        ? ` Add a number, %, or $ to: ${metricEntries.slice(0, 3).join(', ')}`
+        : '';
       issues.push({
         type: 'warning',
-        message: 'No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact',
+        message: `No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact${metricAdvice}`,
         category: 'experience'
       });
     }
@@ -1120,25 +1288,47 @@ export class ATSService {
 
     // A headline earns its weight when it repeats the vocabulary the rest of
     // the resume is scored on, because that is the line recruiters skim.
-    const keywordsInTitle = getKeywordList(profile).filter(keyword => containsTerm(title, keyword));
-    if (keywordsInTitle.length >= 2) {
+    // Matching is expanded through synonyms so "Software Engineer" counts.
+    const keywordList = getKeywordList(profile);
+    const titleKeywordSet = Array.from(expandKeywords(keywordList));
+    const keywordsInTitle = titleKeywordSet.filter(keyword => containsTerm(title, keyword));
+    // The expanded matcher lowercases everything; map back to the original
+    // keyword casing so the panel reads "TypeScript" rather than "typescript".
+    const displayKeywords = keywordsInTitle.map(item =>
+      keywordList.find(keyword => keyword.toLowerCase() === item) || item
+    );
+    if (displayKeywords.length >= 2) {
       score += 40;
       issues.push({
         type: 'success',
-        message: `Headline names relevant skills (${keywordsInTitle.slice(0, 3).join(', ')})`,
+        message: `Headline names relevant skills (${displayKeywords.slice(0, 4).join(', ')})`,
         category: 'summary'
       });
-    } else if (keywordsInTitle.length === 1) {
+    } else if (displayKeywords.length === 1) {
       score += 20;
+      // Recommend a second skill from the Skills section the person already
+      // uses, so the advice is specific to this resume.
+      const skillSuggestions = getSkillTokens(data)
+        .filter(skill => !containsTerm(skill, displayKeywords[0]) && containsTerm(titleKeywordSet.join(' '), skill))
+        .slice(0, 2);
+      const tail = skillSuggestions.length > 0
+        ? ` Add one from your Skills section: ${skillSuggestions.join(', ')}`
+        : ' Add one more core skill, such as the stack you list in Skills';
       issues.push({
         type: 'warning',
-        message: `Headline mentions only "${keywordsInTitle[0]}". Add one more core skill to it`,
+        message: `Headline mentions only "${displayKeywords[0]}".${tail}`,
         category: 'summary'
       });
     } else {
+      const skillSuggestions = getSkillTokens(data)
+        .filter(skill => !containsTerm(title, skill) && containsTerm(titleKeywordSet.join(' '), skill))
+        .slice(0, 3);
+      const tail = skillSuggestions.length > 0
+        ? ` Add them to the headline: ${skillSuggestions.join(', ')}`
+        : ' Add 1-2 role keywords such as TypeScript, React, or your main stack';
       issues.push({
         type: 'warning',
-        message: 'Headline contains no role-specific keywords. Recruiters skim this line first',
+        message: `Headline contains no role-specific keywords. Recruiters skim this line first. ${tail}`,
         category: 'summary'
       });
     }

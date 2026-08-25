@@ -510,17 +510,28 @@ function showATSResultPanel(result: ATSResult): void {
   const content = document.querySelector('.ats-panel-content');
   if (!panel || !content) return;
   
-  // Build detailed breakdown if available
+  // Build detailed breakdown if available.
+  // The second number is the criterion's weight, i.e. how much of the total
+  // score this section is worth. It is now shown as an explicit, labelled
+  // side value instead of an unexplained "26%" in parentheses.
   const breakdownHtml = result.breakdown ? `
     <div class="ats-breakdown">
       <h4 class="ats-breakdown-title">\u{1F4C8} ${tr(currentLang, 'atsBreakdownTitle')}</h4>
+      <p class="ats-breakdown-legend">${tr(currentLang, 'atsBreakdownLegend')}</p>
       ${Object.entries(result.breakdown).map(([key, component]) => `
         <div class="ats-breakdown-item">
           <span class="ats-breakdown-label">${getBreakdownLabel(key)}</span>
           <div class="ats-breakdown-bar">
             <div class="ats-breakdown-fill" style="width: ${component.score}%"></div>
           </div>
-          <span class="ats-breakdown-value">${Math.round(component.score)}% (${(component.weight * 100).toFixed(0)}%)</span>
+          <div class="ats-breakdown-values">
+            <span class="ats-breakdown-value" title="${tr(currentLang, 'atsWeightTitle')}">
+              ${Math.round(component.score)}%
+            </span>
+            <span class="ats-breakdown-weight">
+              ${tr(currentLang, 'atsWeightLabel')} ${(component.weight * 100).toFixed(0)}%
+            </span>
+          </div>
         </div>
       `).join('')}
     </div>

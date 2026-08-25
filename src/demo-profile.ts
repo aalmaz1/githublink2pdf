@@ -7,6 +7,10 @@ import { ResumeData, SkillCategory } from './types';
  * heavyweight dependencies: a faker-style data library would ship its entire
  * locale database (megabytes) to every visitor just to render one placeholder
  * resume. Small hand-written pools keep the production bundle lean.
+ *
+ * The demo is intentionally built to score 100 on the ATS checker. It is the
+ * example the user sees first, so it should demonstrate what an optimised,
+ * ATS-friendly resume looks like rather than one that needs work.
  */
 const FIRST_NAMES = ['Ava', 'Noah', 'Mia', 'Liam', 'Sofia', 'Ethan', 'Nora', 'Lucas', 'Iris', 'Marco'];
 const LAST_NAMES = ['Bennett', 'Okafor', 'Lindqvist', 'Moreau', 'Ivanova', 'Tanaka', 'Silva', 'Novak'];
@@ -23,18 +27,26 @@ const UNIVERSITIES = ['Riverside University', 'Northgate Institute of Technology
 const DEGREES = ['B.S. Computer Science', 'B.S. Software Engineering', 'M.S. Information Systems', 'B.S. Data Science'];
 
 const TITLES = [
-  'Senior Frontend Engineer',
-  'Full Stack Developer',
-  'Backend Engineer',
-  'Platform Engineer',
-  'Software Engineer'
+  'Senior Full Stack Engineer — TypeScript, React, Node.js',
+  'Backend Engineer — Python, PostgreSQL, Docker, AWS',
+  'Frontend Engineer — TypeScript, React, GraphQL',
+  'Platform Engineer — Kubernetes, Docker, AWS, CI/CD',
+  'Software Engineer — TypeScript, Node.js, SQL'
 ];
 
 const ROLES = ['Senior Software Engineer', 'Software Engineer', 'Full Stack Developer', 'Backend Developer'];
 
-const SKILL_POOL = [
-  'TypeScript', 'JavaScript', 'Python', 'Go', 'React', 'Vue', 'Node.js',
-  'PostgreSQL', 'Docker', 'Kubernetes', 'AWS', 'GraphQL', 'REST API', 'CI/CD'
+// A broad, keyword-rich skill set. Listing 20+ tracked skills is realistic for
+// a senior engineer and is what lets the ATS keyword score reach 100.
+const CORE_SKILLS = [
+  'TypeScript', 'JavaScript', 'React', 'Node.js', 'HTML', 'CSS', 'Git', 'SQL',
+  'PostgreSQL', 'Docker', 'Kubernetes', 'AWS', 'Python', 'Go', 'GraphQL',
+  'REST', 'CI/CD', 'GitHub Actions', 'Linux', 'Bash'
+];
+
+const EXTRA_SKILLS = [
+  'Next.js', 'Jest', 'Cypress', 'Terraform', 'Redis', 'MongoDB', 'GraphQL',
+  'Agile', 'Scrum', 'Microservices'
 ];
 
 const EDITORS = ['VS Code', 'IntelliJ IDEA', 'WebStorm', 'Neovim'];
@@ -43,16 +55,20 @@ const DESIGN_TOOLS = ['Figma', 'Sketch', 'Adobe XD'];
 /**
  * Achievement bullets written to look like a real resume: each one leads with
  * an action verb and carries a metric, which is also what the ATS checker
- * rewards, so the demo profile scores realistically.
+ * rewards, so the demo profile is the ideal the tool guides users toward.
  */
 const ACHIEVEMENTS = [
-  'Led the migration of a legacy dashboard to TypeScript and React, cutting page load time by 42%.',
+  'Led the migration of a legacy dashboard to TypeScript and React, cutting page load time by 42% over two months.',
   'Designed and shipped a REST API serving 1.2M requests per day with 99.95% uptime.',
   'Reduced CI pipeline duration from 18 to 6 minutes by parallelising builds and caching dependencies.',
-  'Implemented automated regression tests, lowering production defects by 35% over two quarters.',
+  'Implemented automated regression tests, lowering production defects by 35% across two quarters.',
   'Optimised PostgreSQL queries and indexing, improving p95 response time from 800ms to 180ms.',
-  'Mentored 4 junior engineers and introduced code review guidelines adopted across 3 teams.',
-  'Containerised 12 services with Docker and Kubernetes, enabling zero-downtime deployments.'
+  'Mentored 4 junior engineers and introduced code review guidelines adopted by 3 teams.',
+  'Containerised 12 services with Docker and Kubernetes, enabling zero-downtime deployments.',
+  'Built an analytics dashboard in React that increased weekly active usage by 28%.',
+  'Automated deployments with GitHub Actions, cutting release time from 3 hours to 20 minutes.',
+  'Collaborated with designers in Figma to deliver responsive interfaces for 40 client projects.',
+  'Migrated 5 services to AWS with infrastructure as code, reducing infrastructure spend by 24%.'
 ];
 
 const EDUCATION_NOTES = [
@@ -87,19 +103,24 @@ function pickMany<T>(items: readonly T[], count: number): T[] {
  *
  * Experience entries are emitted in reverse chronological order with
  * non-overlapping, gap-free periods so the ATS date checks see valid input.
+ * The generated resume reliably scores 100: 3 positions, every bullet
+ * quantified and verb-led, 20+ tracked keywords, and a keyword-rich headline.
  */
 export function generateDemoProfile(): ResumeData {
   const name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
   const handle = name.toLowerCase().replace(/[^a-z]+/g, '');
 
   const skills: (string | SkillCategory)[] = [
-    ...pickMany(SKILL_POOL, randomInt(5, 6)),
+    ...CORE_SKILLS,
+    ...pickMany(EXTRA_SKILLS, randomInt(2, 4)),
     { category: 'Tools', items: [pick(EDITORS), pick(DESIGN_TOOLS), 'Git'] }
   ];
 
   const currentYear = new Date().getFullYear();
-  const numExperiences = randomInt(2, 3);
-  const bullets = pickMany(ACHIEVEMENTS, numExperiences * 2);
+  const numExperiences = 3;
+  // 4 bullets for the current role + 3 for each previous one gives a rich
+  // enough history that the ATS word-count check (200-800 words) always passes.
+  const bullets = pickMany(ACHIEVEMENTS, numExperiences * 3 + 1);
 
   const experience = [];
   let periodEnd: number | null = null; // null => the most recent role is ongoing
@@ -107,11 +128,13 @@ export function generateDemoProfile(): ResumeData {
   let earliestStart = periodStart;
 
   for (let i = 0; i < numExperiences; i++) {
+    const bulletCount = i === 0 ? 4 : 3;
+    const start = i === 0 ? 0 : 1 + i * 3;
     experience.push({
       institution: pick(COMPANIES),
       role: pick(ROLES),
       period: periodEnd === null ? `${periodStart} - Present` : `${periodStart} - ${periodEnd}`,
-      description: bullets.slice(i * 2, i * 2 + 2)
+      description: bullets.slice(start, start + bulletCount)
     });
     earliestStart = periodStart;
     // Next entry ends where this one began, keeping the timeline gap-free.
