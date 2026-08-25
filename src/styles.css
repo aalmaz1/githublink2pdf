@@ -57,13 +57,29 @@
   --ui-accent: #4f46e5;
   --ui-btn-text: #fff;
   
-  /* Premium Glass Effect Variables for Light Theme */
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.4);
-  --glass-highlight: rgba(255, 255, 255, 0.6);
-  --glass-shadow: rgba(0, 0, 0, 0.1);
-  --glass-gradient-top: rgba(255, 255, 255, 0.4);
-  --glass-gradient-side: rgba(255, 255, 255, 0.3);
+  /* ------------------------------------------------------------------
+     Premium Glassmorphism System (Light)
+     Multi-layer recipe: frosted base + sheen overlay + accent tint +
+     specular edge highlights, sitting on a soft ambient aurora.
+     ------------------------------------------------------------------ */
+  /* Core frost */
+  --glass-blur: 24px;
+  --glass-saturate: 180%;
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  /* Specular edge definition */
+  --glass-highlight: rgba(255, 255, 255, 0.95);   /* inset top sheen    */
+  --glass-edge-shadow: rgba(15, 23, 42, 0.12);    /* inset bottom edge  */
+  --glass-shadow: rgba(15, 23, 42, 0.12);         /* outer depth drop   */
+  /* Decorative gradient layers (used by ::before / ::after) */
+  --glass-sheen-1: rgba(255, 255, 255, 0.55);
+  --glass-sheen-2: rgba(255, 255, 255, 0.12);
+  --glass-accent-1: rgba(99, 102, 241, 0.10);     /* indigo tint */
+  --glass-accent-2: rgba(56, 189, 248, 0.06);     /* sky tint    */
+  /* Ambient backdrop the glass refracts (soft aurora blobs) */
+  --glass-aurora-1: rgba(99, 102, 241, 0.18);
+  --glass-aurora-2: rgba(56, 189, 248, 0.16);
+  --glass-aurora-3: rgba(236, 72, 153, 0.10);
   
   /* Resume always stays white/black for print consistency */
   --resume-bg: #ffffff;
@@ -85,13 +101,28 @@
   --ui-accent: #818cf8;
   --ui-btn-text: #ffffff;
   
-  /* Premium Glass Effect Variables */
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-highlight: rgba(255, 255, 255, 0.15);
-  --glass-shadow: rgba(0, 0, 0, 0.5);
-  --glass-gradient-top: rgba(255, 255, 255, 0.1);
-  --glass-gradient-side: rgba(255, 255, 255, 0.05);
+  /* ------------------------------------------------------------------
+     Premium Glassmorphism System (Dark)
+     Same multi-layer recipe, tuned for a deep slate backdrop.
+     ------------------------------------------------------------------ */
+  /* Core frost */
+  --glass-blur: 24px;
+  --glass-saturate: 160%;
+  --glass-bg: rgba(30, 41, 59, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  /* Specular edge definition */
+  --glass-highlight: rgba(255, 255, 255, 0.18);   /* inset top sheen    */
+  --glass-edge-shadow: rgba(0, 0, 0, 0.45);       /* inset bottom edge  */
+  --glass-shadow: rgba(0, 0, 0, 0.55);            /* outer depth drop   */
+  /* Decorative gradient layers (used by ::before / ::after) */
+  --glass-sheen-1: rgba(255, 255, 255, 0.16);
+  --glass-sheen-2: rgba(255, 255, 255, 0.04);
+  --glass-accent-1: rgba(129, 140, 248, 0.14);    /* indigo-400 tint */
+  --glass-accent-2: rgba(56, 189, 248, 0.10);     /* sky-400 tint    */
+  /* Ambient backdrop the glass refracts (glowing aurora blobs) */
+  --glass-aurora-1: rgba(99, 102, 241, 0.30);
+  --glass-aurora-2: rgba(14, 165, 233, 0.24);
+  --glass-aurora-3: rgba(168, 85, 247, 0.20);
   
   /* Resume remains white */
   --resume-bg: #ffffff;
@@ -136,7 +167,16 @@ button, input, select, textarea {
 body {
   font-family: var(--font-body);
   color: var(--ui-text);
-  background: var(--ui-bg);
+  background-color: var(--ui-bg);
+  /* Soft ambient aurora — gives the frosted glass something colorful to
+     refract/blur. Print styles force all backgrounds transparent, so this
+     never leaks into the exported PDF. */
+  background-image:
+    radial-gradient(55vw 55vw at 12% 8%, var(--glass-aurora-1), transparent 60%),
+    radial-gradient(50vw 50vw at 88% 16%, var(--glass-aurora-2), transparent 60%),
+    radial-gradient(48vw 48vw at 76% 94%, var(--glass-aurora-3), transparent 62%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   line-height: var(--leading-relaxed);
   transition: background 0.3s ease, color 0.3s ease;
   display: flex;
@@ -957,23 +997,25 @@ body.theme-impact .entity-item {
   align-items: center;
   gap: 20px;
   padding: 16px;
-  background: var(--glass-bg, rgba(255, 255, 255, 0.05));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.3));
-  box-shadow: 
-    0 8px 32px var(--glass-shadow, rgba(0, 0, 0, 0.1)),
-    inset 0 1px 0 var(--glass-highlight, rgba(255, 255, 255, 0.5)),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 20px rgba(255, 255, 255, 0.02);
   margin-bottom: 25px;
   width: 850px;
   max-width: 100%;
   color: var(--ui-text);
-  position: relative;
-  overflow: hidden;
   box-sizing: border-box;
+
+  /* ---- Multi-layer glassmorphism base ---- */
+  position: relative;
+  isolation: isolate; /* traps the ::before/::after layers behind content */
+  overflow: hidden;
+  border-radius: 20px;
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 10px 40px var(--glass-shadow),         /* outer depth drop     */
+    inset 0 1px 0 var(--glass-highlight),    /* top specular sheen   */
+    inset 0 -1px 0 var(--glass-edge-shadow); /* bottom edge shadow   */
 }
 
 /* Mobile responsive fix for controls bar */
@@ -985,33 +1027,33 @@ body.theme-impact .entity-item {
   }
 }
 
+/* Sheen overlay — simulates light reflection sweeping across the surface.
+   Rendered behind content (z-index: -1) but above the frosted base. */
 .controls-bar::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--glass-gradient-top, rgba(255, 255, 255, 0.8)),
-    transparent
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(
+    160deg,
+    var(--glass-sheen-1) 0%,
+    var(--glass-sheen-2) 40%,
+    transparent 100%
   );
 }
 
+/* Accent tint — a subtle color gradient that adds depth and richness. */
 .controls-bar::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(
-    180deg,
-    var(--glass-gradient-side, rgba(255, 255, 255, 0.8)),
-    transparent,
-    rgba(255, 255, 255, 0.05)
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(
+    145deg,
+    var(--glass-accent-1) 0%,
+    var(--glass-accent-2) 100%
   );
 }
 
@@ -1024,29 +1066,29 @@ body.theme-impact .entity-item {
 .lang-select {
   padding: 10px 16px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   color: var(--ui-text);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--glass-border);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 4px 12px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-edge-shadow);
   outline: none;
 }
 
 .lang-select:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--glass-highlight);
   transform: translateY(-2px);
-  box-shadow: 
-    0 12px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 0 20px rgba(88, 166, 255, 0.15);
+  box-shadow:
+    0 12px 24px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 22px var(--glass-accent-1);
 }
 
 .lang-select option {
@@ -1058,31 +1100,31 @@ body.theme-impact .entity-item {
 .design-select {
   padding: 10px 16px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   color: var(--ui-text);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--glass-border);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 4px 12px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-edge-shadow);
   outline: none;
   min-width: 200px;
   max-width: 350px;
 }
 
 .design-select:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--glass-highlight);
   transform: translateY(-2px);
-  box-shadow: 
-    0 12px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 0 20px rgba(88, 166, 255, 0.15);
+  box-shadow:
+    0 12px 24px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 22px var(--glass-accent-1);
 }
 
 .design-select option {
