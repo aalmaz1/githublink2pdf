@@ -12,6 +12,10 @@ const BASE_TECH_KEYWORDS = [
   'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP', 'CI/CD', 'Jenkins', 'GitLab', 'GitHub Actions', 'Terraform',
   'Git', 'API', 'REST', 'GraphQL', 'Microservices', 'Agile', 'Scrum', 'TDD', 'Linux', 'Bash',
   'Jest', 'Mocha', 'pytest', 'JUnit', 'Cypress', 'Playwright',
+  // Role titles are keywords too: recruiters and ATS parsers look for them in
+  // the headline, not just for named tools.
+  'software engineer', 'software developer', 'frontend', 'front end', 'backend', 'back end',
+  'full stack', 'fullstack', 'devops', 'cloud',
   // ML/Data Science additions
   'machine learning', 'statistics', 'pandas', 'numpy', 'data analysis', 'data science', 'AI', 'ML',
   'TensorFlow', 'PyTorch', 'scikit-learn', 'deep learning', 'neural networks', 'NLP', 'computer vision'

@@ -695,4 +695,81 @@ describe('ATSService', () => {
       }
     });
   });
+
+  describe('ideal resume', () => {
+    it('should reach a perfect score when every criterion is met', () => {
+      const ideal: ResumeData = {
+        ...createFullResume(),
+        personal: { ...createFullResume().personal, title: 'Senior Full Stack Engineer — TypeScript, React, Node.js' },
+        experience: [
+          {
+            institution: 'Tech Corp',
+            role: 'Senior Developer',
+            period: '2020 - Present',
+            description: [
+              'Led the migration of a legacy dashboard to TypeScript and React, cutting page load time by 42%.',
+              'Designed and shipped a REST API serving 1.2M requests per day with 99.95% uptime.',
+              'Mentored 4 junior engineers and introduced code review guidelines adopted across 3 teams.',
+              'Automated deployments with Docker and Kubernetes, reducing release time from 3 hours to 20 minutes.'
+            ]
+          },
+          {
+            institution: 'Startup Inc',
+            role: 'Full Stack Developer',
+            period: '2017 - 2020',
+            description: [
+              'Reduced CI pipeline duration from 18 to 6 minutes by parallelising builds and caching dependencies.',
+              'Implemented automated regression tests, lowering production defects by 35% over two quarters.',
+              'Optimised PostgreSQL queries and indexing, improving p95 response time from 800ms to 180ms.',
+              'Built a customer analytics dashboard in React that increased weekly active usage by 28%.'
+            ]
+          },
+          {
+            institution: 'Web Agency',
+            role: 'Junior Developer',
+            period: '2014 - 2017',
+            description: [
+              'Containerised 12 services with Docker and Kubernetes, enabling zero-downtime deployments.',
+              'Collaborated with designers in Figma to deliver responsive React interfaces for 40 client projects.',
+              'Wrote 60+ Jest unit tests and helped raise code coverage from 62% to 91%.'
+            ]
+          }
+        ],
+        skills: [
+          'TypeScript', 'JavaScript', 'React', 'Node.js', 'HTML', 'CSS', 'Git', 'SQL', 'PostgreSQL',
+          'Docker', 'Kubernetes', 'AWS', 'Python', 'REST', 'GraphQL', 'CI/CD', 'Agile', 'Scrum',
+          'TDD', 'Linux', 'Bash', 'Jest'
+        ]
+      };
+
+      const result = atsService.analyze(ideal);
+
+      expect(result.score).toBe(100);
+    });
+
+    it('should name real entries and keywords instead of generic advice', () => {
+      const weakResume: ResumeData = {
+        ...createFullResume(),
+        skills: ['Cooking', 'Gardening', 'Photography'],
+        experience: [{
+          institution: 'Tech Corp',
+          role: 'Senior Developer',
+          period: '2020 - Present',
+          description: ['Improved the developer workflow', 'Managed a small team']
+        }]
+      };
+
+      const result = atsService.analyze(weakResume);
+
+      const keywordAdvice = result.issues.find(issue =>
+        issue.category === 'keywords' && issue.message.includes('technical keywords')
+      );
+      const formatAdvice = result.issues.find(issue =>
+        issue.category === 'format' && issue.message.includes('quantifiable achievements')
+      );
+
+      expect(keywordAdvice?.message).toMatch(/(Docker|AWS|Kubernetes|SQL|CI\/CD|GraphQL)/);
+      expect(formatAdvice?.message).toMatch(/Senior Developer \(Tech Corp\)/);
+    });
+  });
 });

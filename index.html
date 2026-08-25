@@ -102,15 +102,6 @@
             <span class="group-label" id="app-title">Github Link2PDF Resume Builder</span>
         </div>
 
-        <div class="lang-group">
-            <label for="lang-select" id="lang-label">Interface Language:</label>
-            <select id="lang-select" class="lang-select" aria-label="Select interface language">
-                <option value="en">English</option>
-                <option value="ru">Русский</option>
-                <option value="ko">한국어</option>
-            </select>
-        </div>
-
         <div class="design-group">
             <label for="design-select" class="group-label" data-i18n="resumeDesignLabel">Resume Design:</label>
             <select id="design-select" class="design-select" aria-label="Select resume theme">
@@ -138,6 +129,16 @@
             <button id="export-pdf" aria-label="Export PDF">Export PDF</button>
             <button id="ats-check" aria-label="ATS Check">📊 ATS Check</button>
         </div>
+    </div>
+
+    <!-- Floating interface language button (above theme toggle) -->
+    <div id="lang-toggle-wrap" class="lang-toggle-wrap">
+        <div id="lang-menu" class="lang-menu" role="menu" aria-hidden="true">
+            <button class="lang-option" data-lang="en" role="menuitem" type="button" title="English" aria-label="English">🇬🇧</button>
+            <button class="lang-option" data-lang="ru" role="menuitem" type="button" title="Русский" aria-label="Русский">🇷🇺</button>
+            <button class="lang-option" data-lang="ko" role="menuitem" type="button" title="한국어" aria-label="한국어">🇰🇷</button>
+        </div>
+        <button id="lang-toggle-floating" class="lang-toggle-floating" type="button" title="Change interface language" aria-label="Change interface language" aria-haspopup="menu" aria-expanded="false">🌐</button>
     </div>
 
     <!-- Theme Toggle Button - Bottom Left Corner -->
