@@ -1057,6 +1057,41 @@ body.theme-impact .entity-item {
   );
 }
 
+/* Site branding — logo in top-left corner, small */
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-logo {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 2px;
+}
+
+[data-theme="dark"] .site-logo {
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+
+@media (max-width: 768px) {
+  .site-logo {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 6px;
+  }
+}
+
 .import-group, .theme-group, .action-group, .align-group, .design-group {
   display: flex;
   gap: 8px;
