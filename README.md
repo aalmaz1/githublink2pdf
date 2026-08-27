@@ -1,3 +1,5 @@
+<p align="center"><img src="logo.webp" width="220" alt="Github Link2PDF logo"></p>
+
 # Github Link2PDF Resume Builder
 
 A client-side resume builder that turns a GitHub profile into an editable, ATS-aware, print-ready resume. Built as a Vite single-page app in TypeScript — no backend, no framework.
@@ -8,7 +10,7 @@ A client-side resume builder that turns a GitHub profile into an editable, ATS-a
 - **30 resume designs** — professional, creative, minimal, tech, business, elegant, and bold templates, plus a random-design button
 - **Inline editing** — click any text on the preview to change it (`contenteditable`)
 - **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education (plus an overall summary verdict), with a side panel of concrete recommendations. Each criterion shows its score and its labelled **weight** (share of the total), so `90% · вес 26%` is never confusing
-- **Export** — A4 PDF via html2pdf.js, or download the resume as JSON
+- **Export** — A4 PDF via jsPDF with real, selectable, machine-readable text (ATS parsers can read it), or download the resume as JSON
 - **UI** — interface chrome in English, Russian, and Korean; light/dark theme, text alignment; preferences stored in `localStorage`
 - **Demo profile** — a generated sample resume loads immediately so you can try designs without an import
 
@@ -26,7 +28,7 @@ The UI chrome (buttons, labels, toasts) switches between English, Russian, and K
 | Bundler / dev server | Vite |
 | Styling | CSS custom properties (one class per design) |
 | Tests | Vitest + jsdom |
-| PDF | html2pdf.js / html2canvas |
+| PDF | jsPDF (text-based, lazily loaded on export) |
 | Data | GitHub REST API, `localStorage` |
 
 ## Getting started
@@ -34,8 +36,8 @@ The UI chrome (buttons, labels, toasts) switches between English, Russian, and K
 Node.js 20.19+ or 22.12+ is required (Vite 8).
 
 ```bash
-git clone https://github.com/aalmaz1/resume_builder.git
-cd resume_builder
+git clone https://github.com/aalmaz1/githublink2pdf.git
+cd githublink2pdf
 npm install
 npm run dev
 ```
@@ -73,10 +75,9 @@ src/
   main.ts                      # UI wiring: import, design, ATS, export, i18n
   resume-builder.ts            # Renders resume HTML from data
   github-provider.ts           # GitHub API + username parsing
-  demo-profile.ts              # Faker-based sample resume
+  demo-profile.ts              # Built-in sample resume (no faker dependency)
   translations.ts              # UI chrome strings (EN / RU / KO)
   styles.css                   # UI chrome + 30 design themes
-  html2pdf.d.ts                # Type declarations for html2pdf.js
   designs/design-templates.ts  # The 30 design definitions + helpers
   services/ATSService.ts       # ATS scoring
   services/ExportService.ts    # A4 PDF export
