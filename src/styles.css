@@ -1,24 +1,15 @@
-/* ==========================================================================
-   TYPOGRAPHY SYSTEM
-   ========================================================================== */
+/* TYPOGRAPHY SYSTEM */
 
 :root {
+  /* Fonts */
   --font-heading: 'Merriweather', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-
   /* Fallback for resume container (print-safe) */
   --font-resume: var(--font-body);
-  
   /* Monospace for code/technical content */
   --font-mono: 'SF Mono', 'Fira Code', Consolas, Monaco, 'Courier New', monospace;
-}
 
-/* ==========================================================================
-   Type Scale — Based on 1.25 ratio (Major Third)
-   All sizes in rem for accessibility and scalability
-   ========================================================================== */
-:root {
-  /* Font Sizes */
+  /* Font Sizes — type scale based on a 1.25 ratio (Major Third), all rem */
   --text-sm:    0.875rem;  /* 14px — Secondary text, dates */
   --text-base:  1rem;      /* 16px — Body text */
   --text-xl:    1.25rem;   /* 20px — H3, section titles */
@@ -45,9 +36,7 @@
   --tracking-wider:   0.05em;
 }
 
-/* ==========================================================================
-   Theme Variables (Light/Dark for UI only)
-   ========================================================================== */
+/* Theme Variables (Light/Dark for UI only) */
 :root {
   /* Light Theme (Default) */
   --ui-bg: #f8fafc;
@@ -55,7 +44,6 @@
   --ui-panel-bg: #ffffff;
   --ui-border: #e2e8f0;
   --ui-accent: #4f46e5;
-  --ui-btn-text: #fff;
   
   /* ------------------------------------------------------------------
      Premium Glassmorphism System (Light)
@@ -99,8 +87,7 @@
   --ui-panel-bg: #1e293b;
   --ui-border: #334155;
   --ui-accent: #818cf8;
-  --ui-btn-text: #ffffff;
-  
+
   /* ------------------------------------------------------------------
      Premium Glassmorphism System (Dark)
      Same multi-layer recipe, tuned for a deep slate backdrop.
@@ -145,10 +132,8 @@
   border: 0;
 }
 
-/* ==========================================================================
-   GLOBAL RESET — Fix mobile overflow issues
-   Apply border-box to all elements to prevent padding from adding to width
-   ========================================================================== */
+/* GLOBAL RESET — Fix mobile overflow issues
+   Apply border-box to all elements to prevent padding from adding to width */
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -190,10 +175,8 @@ body {
   margin: 0;
 }
 
-/* ==========================================================================
-   Design Tokens — Theme: Classic (Refined)
-   Now uses Playfair Display for elegance
-   ========================================================================== */
+/* Design Tokens — Theme: Classic (Refined)
+   Now uses Playfair Display for elegance */
 body.theme-classic {
   --primary-color: #1e293b;
   --accent-color: #4f46e5;
@@ -203,10 +186,8 @@ body.theme-classic {
   --border-color: #cbd5e1;
 }
 
-/* ==========================================================================
-   Design Tokens — Theme: Modern (Enhanced)
-   Uses Inter for clean, tech-forward look
-   ========================================================================== */
+/* Design Tokens — Theme: Modern (Enhanced)
+   Uses Inter for clean, tech-forward look */
 body.theme-modern {
   --primary-color: #1e1e2e;
   --accent-color: #4f46e5;
@@ -232,10 +213,8 @@ body.theme-modern .section-block h3 {
   font-weight: var(--font-semibold);
 }
 
-/* ==========================================================================
-   Design Tokens — Theme: Minimal (Refined)
-   Clean, brutalist-inspired design
-   ========================================================================== */
+/* Design Tokens — Theme: Minimal (Refined)
+   Clean, brutalist-inspired design */
 body.theme-minimal {
   --primary-color: #0f172a;
   --accent-color: #0f172a;
@@ -257,10 +236,8 @@ body.theme-minimal h1 {
   letter-spacing: var(--tracking-wide);
 }
 
-/* ==========================================================================
-   DESIGN TEMPLATES CSS — 30 Professional Resume Designs
-   Each design uses CSS custom properties for easy theming
-   ========================================================================== */
+/* DESIGN TEMPLATES CSS — 30 Professional Resume Designs
+   Each design uses CSS custom properties for easy theming */
 
 /* ==================== PROFESSIONAL DESIGNS ==================== */
 
@@ -987,9 +964,7 @@ body.theme-impact .entity-item {
   padding-left: 20px;
 }
 
-/* ==========================================================================
-   Controls Bar (theme switcher + print button) - Premium Glassmorphism Style
-   ========================================================================== */
+/* Controls Bar (theme switcher + print button) - Premium Glassmorphism Style */
 .controls-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1202,9 +1177,7 @@ input[type="text"]:focus {
     0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* ==========================================================================
-   Loading Overlay & Spinner
-   ========================================================================== */
+/* Loading Overlay & Spinner */
 #loading-overlay {
   position: fixed;
   top: 0;
@@ -1257,10 +1230,8 @@ input[type="text"]:focus {
   100% { transform: rotate(360deg); }
 }
 
-/* ==========================================================================
-   Resume Preview Container - Fixed A4 Layout
-   Uses Inter font for optimal screen and print readability
-   ========================================================================== */
+/* Resume Preview Container - Fixed A4 Layout
+   Uses Inter font for optimal screen and print readability */
 #resume-container {
   /* Фиксированные размеры A4 */
   width: 210mm;
@@ -1282,9 +1253,7 @@ input[type="text"]:focus {
   line-height: var(--leading-normal);
 }
 
-/* ==========================================================================
-   Layout Primitives
-   ========================================================================== */
+/* Layout Primitives */
 .positioned-block {
   margin-bottom: var(--padding-unit);
   padding: calc(var(--padding-unit) * 0.5) 0;
@@ -1353,9 +1322,6 @@ input[type="text"]:focus {
   width: 100%;
 }
 
-
-
-
 /* Text alignment support for print */
 .section-block {
   text-align: left; /* Default, overridden by JS */
@@ -1374,10 +1340,8 @@ p {
   -ms-hyphens: auto;
 }
 
-/* ==========================================================================
-   Typography — Modern Type Scale
-   Using CSS custom properties for consistent sizing
-   ========================================================================== */
+/* Typography — Modern Type Scale
+   Using CSS custom properties for consistent sizing */
 h1, h2, h3 {
   margin: 0;
   color: var(--primary-color);
@@ -1413,8 +1377,6 @@ h3 {
   font-weight: var(--font-semibold);
 }
 
-
-
 ul {
   list-style: disc;
   padding-left: 20px;
@@ -1444,9 +1406,7 @@ li {
 }
 
 
-/* ==========================================================================
-   @media print overrides - for native browser print (backup)
-   ========================================================================== */
+/* @media print overrides - for native browser print (backup) */
 @media print {
   @page {
     margin: 0;
@@ -1492,10 +1452,8 @@ li {
   }
 }
 
-/* ==========================================================================
-   Floating Interface Language Button - Round, above the theme toggle.
-   Clicking it opens a flag menu that slides upward.
-   ========================================================================== */
+/* Floating Interface Language Button - Round, above the theme toggle.
+   Clicking it opens a flag menu that slides upward. */
 .lang-toggle-wrap {
   position: fixed;
   left: 20px;
@@ -1658,9 +1616,7 @@ li {
   }
 }
 
-/* ==========================================================================
-   Floating Theme Toggle Button - Bottom Left Corner (Telegram Style)
-   ========================================================================== */
+/* Floating Theme Toggle Button - Bottom Left Corner (Telegram Style) */
 .theme-toggle-floating {
   position: fixed;
   bottom: 20px;
@@ -1714,9 +1670,7 @@ li {
     0 0 30px rgba(255, 193, 7, 0.6);
 }
 
-/* ==========================================================================
-   Responsive Design - Mobile First Approach
-   ========================================================================== */
+/* Responsive Design - Mobile First Approach */
 
 /* Tablet and smaller screens (max-width: 1024px) */
 @media screen and (max-width: 1024px) {
@@ -1771,7 +1725,7 @@ li {
     flex-wrap: wrap;
   }
 
-  .design-btn, .align-btn {
+  .align-btn {
     padding: 8px 12px;
     font-size: 12px;
   }
@@ -1899,9 +1853,7 @@ li {
   }
 }
 
-/* ==========================================================================
-   Main Content Layout - Resume + ATS Panel Side by Side
-   ========================================================================== */
+/* Main Content Layout - Resume + ATS Panel Side by Side */
 .main-content-wrapper {
   display: flex;
   gap: 20px;
@@ -1931,9 +1883,7 @@ li {
   min-height: 800px;
 }
 
-/* ==========================================================================
-   ATS Panel - Sticky Sidebar
-   ========================================================================== */
+/* ATS Panel - Sticky Sidebar */
 .ats-panel {
   flex: 0 0 25%;
   max-width: 25%;
@@ -2036,9 +1986,7 @@ li {
   color: var(--ui-text);
 }
 
-/* ==========================================================================
-   ATS Breakdown Styles (NEW)
-   ========================================================================== */
+/* ATS Breakdown Styles (NEW) */
 .ats-breakdown {
   margin-bottom: 16px;
   padding-bottom: 16px;
@@ -2122,9 +2070,7 @@ li {
   margin-bottom: 12px;
 }
 
-/* ==========================================================================
-   Job-Matching Bar (paste a job description for targeted ATS matching)
-   ========================================================================== */
+/* Job-Matching Bar (paste a job description for targeted ATS matching) */
 .job-match-bar {
   display: flex;
   align-items: center;
@@ -2210,9 +2156,7 @@ li {
   }
 }
 
-/* ==========================================================================
-   Job-Match Keyword Chips (found / missing against a job description)
-   ========================================================================== */
+/* Job-Match Keyword Chips (found / missing against a job description) */
 .ats-job-match {
   margin-bottom: 16px;
   padding: 12px;

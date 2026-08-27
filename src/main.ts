@@ -212,13 +212,6 @@ function buildDesignOptions(designSelect: HTMLSelectElement): void {
   let currentCategory = '';
   DESIGNS.forEach(design => {
     if (design.category !== currentCategory) {
-      if (currentCategory !== '' ) {
-        const lastOptgroup = designSelect.querySelector('optgroup:last-child');
-        if (lastOptgroup) designSelect.appendChild(lastOptgroup);
-      }
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = design.category.charAt(0).toUpperCase() + design.category.slice(1);
-      optgroup.dataset.category = design.category;
       currentCategory = design.category;
     }
     const option = document.createElement('option');
