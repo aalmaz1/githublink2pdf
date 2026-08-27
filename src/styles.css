@@ -2378,3 +2378,12 @@ li {
     transform: translateY(0);
   }
 }
+
+/* Site logo – left‑top, small */
+.logo {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 40px;
+  pointer-events: none;
+}
