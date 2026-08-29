@@ -104,6 +104,16 @@ export class ExportService {
   }
 
   /**
+   * Start loading jsPDF before the user actually clicks export (e.g. on
+   * hover or keyboard focus of the export button) so the export feels
+   * instant. Failures are swallowed — a real export call retries and
+   * surfaces any error to the user then.
+   */
+  public prefetchPdf(): void {
+    this.loadJsPdf().catch(() => undefined);
+  }
+
+  /**
    * Load jsPDF on demand so its weight stays out of the initial page load.
    */
   private async loadJsPdf(): Promise<typeof JsPdfType> {

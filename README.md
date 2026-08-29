@@ -27,6 +27,7 @@ The UI chrome (buttons, labels, toasts) switches between English, Russian, and K
 | Language | TypeScript |
 | Bundler / dev server | Vite |
 | Styling | CSS custom properties (one class per design) |
+| Fonts | Inter + Merriweather, self-hosted via `@fontsource` (SIL OFL, see `THIRD_PARTY_NOTICES.md`) |
 | Tests | Vitest + jsdom |
 | PDF | jsPDF (text-based, lazily loaded on export) |
 | Data | GitHub REST API, `localStorage` |

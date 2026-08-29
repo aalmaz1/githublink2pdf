@@ -4,7 +4,8 @@ import { readResumeFromDom } from './resume-editor';
 import { ExportService } from './services/ExportService';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
-import { translations, tr, Lang, TranslationKey, defaultLang } from './translations';
+import { tr, Lang, TranslationKey, defaultLang, getTranslations, loadTranslations } from './translations';
+import { loadFonts } from './font-loader';
 import { cleanDuplicateEmojis } from './i18n/index';
 import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
@@ -44,12 +45,23 @@ function getCurrentResumeData(): ResumeData | null {
   return currentResumeData;
 }
 
+/** Guards against racing language switches (see updateInterfaceLanguage). */
+let langRequestSeq = 0;
+
 /**
- * Update all UI text based on current language
+ * Update all UI text based on current language.
+ *
+ * The ru/ko dictionaries are lazy-loaded chunks; the UI is re-rendered once
+ * the dictionary is ready. If the user switches languages quickly, only the
+ * most recent request is applied.
  */
-function updateInterfaceLanguage(lang: Lang): void {
+async function updateInterfaceLanguage(lang: Lang): Promise<void> {
+  const request = ++langRequestSeq;
+  await loadTranslations(lang);
+  if (request !== langRequestSeq) return; // superseded by a newer switch
+
   currentLang = lang;
-  const t = translations[lang];
+  const t = getTranslations(lang);
   
   // Update elements by ID
   const updateText = (id: string, text: string) => {
@@ -288,7 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initial render
   updateUI(defaultData, container);
-  updateInterfaceLanguage(currentLang);
+  void updateInterfaceLanguage(currentLang);
+
+  // Start fetching the font stylesheets right after first render; the UI
+  // paints immediately and swaps fonts in once they arrive.
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => loadFonts(), { timeout: 1500 });
+  } else {
+    setTimeout(loadFonts, 0);
+  }
   
   // Show editable hint after a short delay
   setTimeout(() => showEditableHint(), 2000);
@@ -317,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const langWrap = document.getElementById('lang-toggle-wrap');
   const langToggle = document.getElementById('lang-toggle-floating');
   const langMenu = document.getElementById('lang-menu');
-  const langToggleLabel = translations[currentLang].languageLabel;
+  const langToggleLabel = getTranslations(currentLang).languageLabel;
   if (langToggle) {
     langToggle.textContent = LANG_FLAGS[currentLang];
     langToggle.setAttribute('aria-label', langToggleLabel);
@@ -340,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
       event.stopPropagation();
       const newLang = option.dataset.lang as Lang | undefined;
       if (newLang && ['en', 'ru', 'ko'].includes(newLang)) {
-        updateInterfaceLanguage(newLang);
+        void updateInterfaceLanguage(newLang);
       }
       setLangMenuOpen(false);
     });
@@ -445,7 +465,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // PDF Export with notification
-  document.getElementById('export-pdf')?.addEventListener('click', async () => {
+  const exportPdfBtn = document.getElementById('export-pdf');
+  exportPdfBtn?.addEventListener('click', async () => {
     const data = getCurrentResumeData();
     if (!data) return;
     try {
@@ -457,6 +478,12 @@ document.addEventListener('DOMContentLoaded', () => {
       showNotification(`${tr(currentLang, 'exportError')}: ${errorMessage}`, 'error');
     }
   });
+
+  // Start downloading the PDF library as soon as the user shows intent, so
+  // the click-to-export feels instant. Prefetch failures are harmless: the
+  // real export call above loads (and surfaces errors) on its own.
+  exportPdfBtn?.addEventListener('pointerenter', () => exportService.prefetchPdf());
+  exportPdfBtn?.addEventListener('focus', () => exportService.prefetchPdf());
 
   // ATS Check Button - Toggle panel visibility
   document.getElementById('ats-check')?.addEventListener('click', () => {
