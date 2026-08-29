@@ -1,0 +1,56 @@
+/**
+ * Russian UI strings. Imported lazily (dynamic chunk) on first use,
+ * so the main bundle does not ship ru + ko dictionaries to en users.
+ */
+import type { TranslationDict } from '../translations';
+
+const ru: TranslationDict = {
+    appTitle: 'Github Link2PDF Resume Builder',
+    githubPlaceholder: 'Введите имя пользователя GitHub (например, octocat)',
+    exportBtn: 'Экспорт в PDF',
+    languageLabel: 'Язык интерфейса',
+    resumeDesignLabel: 'Дизайн резюме:',
+    alignmentLabel: 'Выравнивание:',
+    saveJsonBtn: 'Сохранить JSON',
+    alignLeft: 'Левый',
+    alignCenter: 'Центр',
+    alignJustify: 'По ширине',
+    importBtn: 'Импорт',
+    randomDesignBtn: 'Случайный',
+    atsCheckBtn: 'Проверка ATS',
+    loadingGitHub: 'Загрузка данных GitHub...',
+    invalidUsername: 'Введите корректное имя пользователя GitHub',
+    exportSuccess: 'PDF успешно экспортирован!',
+    exportError: 'Ошибка при экспорте PDF',
+    jsonSaved: 'JSON файл загружен',
+    profileLoaded: 'Профиль успешно загружен!',
+    fillInExperience: 'GitHub не знает о вашей работе и учёбе — впишите их в разделы «Опыт» и «Образование».',
+    userNotFound: 'Пользователь не найден или неверный формат',
+    rateLimited: 'Пользователь не найден или превышен лимит API',
+    editableHint: 'Совет: нажмите на любой текст в резюме, чтобы отредактировать его!',
+    atsScoreTitle: 'Оценка ATS',
+    atsBreakdownTitle: 'Детализация оценки',
+    atsBreakdownLegend: 'Балл (вес в итоге). Вклад в итог = балл × вес.',
+    atsWeightLabel: 'вес',
+    atsWeightTitle: 'Доля этого критерия в итоговом балле',
+    atsRecommendationsTitle: 'Рекомендации',
+    atsStructure: 'Структура',
+    atsKeywords: 'Ключевые слова',
+    atsContacts: 'Контакты',
+    atsFormat: 'Формат',
+    atsDates: 'Даты',
+    atsExperience: 'Опыт',
+    atsEducation: 'Образование',
+    atsSummary: 'Итог',
+    jobDescriptionPlaceholder: 'Вставьте текст вакансии, чтобы сопоставить резюме с конкретной ролью (необязательно)',
+    jobMatchToggle: 'Сопоставление',
+    jobMatchTitle: 'Сопоставление с вакансией',
+    foundInResume: 'Есть в резюме',
+    missingFromResume: 'Не хватает в резюме',
+    addToSkills: 'Добавить в навыки',
+    addedToSkills: 'Добавлено в навыки',
+    noMissingKeywords: 'Все ключевые слова из вакансии уже есть в резюме',
+    noJobDescription: 'Вставьте текст вакансии выше, чтобы увидеть целевое сопоставление ключевых слов.'
+};
+
+export default ru;

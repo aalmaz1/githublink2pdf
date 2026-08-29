@@ -1,159 +1,101 @@
+/**
+ * UI string dictionaries.
+ *
+ * English is bundled with the main chunk; Russian and Korean live in
+ * separate dynamic chunks (src/i18n/ru.ts, src/i18n/ko.ts) that are
+ * fetched only when the user first switches to that language, keeping
+ * the initial bundle small for the common English-only case.
+ */
 export type Lang = 'en' | 'ru' | 'ko';
 
-export const translations = {
-  en: {
-    appTitle: 'Github Link2PDF Resume Builder',
-    githubPlaceholder: 'Enter GitHub username (e.g. octocat)',
-    exportBtn: 'Export PDF',
-    languageLabel: 'Interface Language',
-    resumeDesignLabel: 'Resume Design:',
-    alignmentLabel: 'Alignment:',
-    saveJsonBtn: 'Save JSON',
-    alignLeft: 'Left',
-    alignCenter: 'Center',
-    alignJustify: 'Justify',
-    importBtn: 'Import',
-    randomDesignBtn: 'Random',
-    atsCheckBtn: 'ATS Check',
-    loadingGitHub: 'Loading GitHub data...',
-    invalidUsername: 'Please enter a valid GitHub username',
-    exportSuccess: 'PDF exported successfully!',
-    exportError: 'PDF export error',
-    jsonSaved: 'JSON file downloaded',
-    profileLoaded: 'Profile loaded successfully!',
-    fillInExperience: 'GitHub does not know your jobs or studies - add them in the Experience and Education sections.',
-    userNotFound: 'User not found or invalid format',
-    rateLimited: 'GitHub user not found or API limit reached',
-    editableHint: 'Tip: Click any text in the resume to edit it directly!',
-    atsScoreTitle: 'ATS Score',
-    atsBreakdownTitle: 'Score breakdown',
-    atsBreakdownLegend: 'Score (share of total). Contribution to the total = score × weight.',
-    atsWeightLabel: 'weight',
-    atsWeightTitle: 'Share of this criterion in the total score',
-    atsRecommendationsTitle: 'Recommendations',
-    atsStructure: 'Structure',
-    atsKeywords: 'Keywords',
-    atsContacts: 'Contacts',
-    atsFormat: 'Format',
-    atsDates: 'Dates',
-    atsExperience: 'Experience',
-    atsEducation: 'Education',
-    atsSummary: 'Summary',
-    jobDescriptionPlaceholder: 'Paste the job description here to match your resume against a specific role (optional)',
-    jobMatchToggle: 'Job match',
-    jobMatchTitle: 'Match against job description',
-    foundInResume: 'Found in resume',
-    missingFromResume: 'Missing from resume',
-    addToSkills: 'Add to skills',
-    addedToSkills: 'Added to skills',
-    noMissingKeywords: 'All job keywords are already present in your resume',
-    noJobDescription: 'Paste a job description above to see targeted keyword matching against that role.'
-  },
-  ru: {
-    appTitle: 'Github Link2PDF Resume Builder',
-    githubPlaceholder: 'Введите имя пользователя GitHub (например, octocat)',
-    exportBtn: 'Экспорт в PDF',
-    languageLabel: 'Язык интерфейса',
-    resumeDesignLabel: 'Дизайн резюме:',
-    alignmentLabel: 'Выравнивание:',
-    saveJsonBtn: 'Сохранить JSON',
-    alignLeft: 'Левый',
-    alignCenter: 'Центр',
-    alignJustify: 'По ширине',
-    importBtn: 'Импорт',
-    randomDesignBtn: 'Случайный',
-    atsCheckBtn: 'Проверка ATS',
-    loadingGitHub: 'Загрузка данных GitHub...',
-    invalidUsername: 'Введите корректное имя пользователя GitHub',
-    exportSuccess: 'PDF успешно экспортирован!',
-    exportError: 'Ошибка при экспорте PDF',
-    jsonSaved: 'JSON файл загружен',
-    profileLoaded: 'Профиль успешно загружен!',
-    fillInExperience: 'GitHub не знает о вашей работе и учёбе — впишите их в разделы «Опыт» и «Образование».',
-    userNotFound: 'Пользователь не найден или неверный формат',
-    rateLimited: 'Пользователь не найден или превышен лимит API',
-    editableHint: 'Совет: нажмите на любой текст в резюме, чтобы отредактировать его!',
-    atsScoreTitle: 'Оценка ATS',
-    atsBreakdownTitle: 'Детализация оценки',
-    atsBreakdownLegend: 'Балл (вес в итоге). Вклад в итог = балл × вес.',
-    atsWeightLabel: 'вес',
-    atsWeightTitle: 'Доля этого критерия в итоговом балле',
-    atsRecommendationsTitle: 'Рекомендации',
-    atsStructure: 'Структура',
-    atsKeywords: 'Ключевые слова',
-    atsContacts: 'Контакты',
-    atsFormat: 'Формат',
-    atsDates: 'Даты',
-    atsExperience: 'Опыт',
-    atsEducation: 'Образование',
-    atsSummary: 'Итог',
-    jobDescriptionPlaceholder: 'Вставьте текст вакансии, чтобы сопоставить резюме с конкретной ролью (необязательно)',
-    jobMatchToggle: 'Сопоставление',
-    jobMatchTitle: 'Сопоставление с вакансией',
-    foundInResume: 'Есть в резюме',
-    missingFromResume: 'Не хватает в резюме',
-    addToSkills: 'Добавить в навыки',
-    addedToSkills: 'Добавлено в навыки',
-    noMissingKeywords: 'Все ключевые слова из вакансии уже есть в резюме',
-    noJobDescription: 'Вставьте текст вакансии выше, чтобы увидеть целевое сопоставление ключевых слов.'
-  },
-  ko: {
-    appTitle: 'Github Link2PDF Resume Builder',
-    githubPlaceholder: 'GitHub 사용자명 입력 (예: octocat)',
-    exportBtn: 'PDF 내보내기',
-    languageLabel: '인터페이스 언어',
-    resumeDesignLabel: '이력서 디자인:',
-    alignmentLabel: '정렬:',
-    saveJsonBtn: 'JSON 저장',
-    alignLeft: '왼쪽',
-    alignCenter: '중앙',
-    alignJustify: '양쪽 맞춤',
-    importBtn: '가져오기',
-    randomDesignBtn: '랜덤',
-    atsCheckBtn: 'ATS 검사',
-    loadingGitHub: 'GitHub 데이터를 불러오는 중...',
-    invalidUsername: '유효한 GitHub 사용자명을 입력하세요',
-    exportSuccess: 'PDF 가 성공적으로 내보내졌습니다!',
-    exportError: 'PDF 내보내기 오류',
-    jsonSaved: 'JSON 파일이 다운로드되었습니다',
-    profileLoaded: '프로필을 성공적으로 불러왔습니다!',
-    fillInExperience: 'GitHub은 경력과 학력을 알지 못합니다. 경력 및 학력 항목에 직접 입력하세요.',
-    userNotFound: '사용자를 찾을 수 없거나 잘못된 형식입니다',
-    rateLimited: '사용자를 찾을 수 없거나 API 한도를 초과했습니다',
-    editableHint: '팁: 이력서의 텍스트를 클릭하여 직접 편집할 수 있습니다!',
-    atsScoreTitle: 'ATS 점수',
-    atsBreakdownTitle: '점수 상세',
-    atsBreakdownLegend: '점수(전체 비중). 총점 기여도 = 점수 × 비중.',
-    atsWeightLabel: '비중',
-    atsWeightTitle: '전체 점수에서 이 항목의 비중',
-    atsRecommendationsTitle: '권장 사항',
-    atsStructure: '구조',
-    atsKeywords: '키워드',
-    atsContacts: '연락처',
-    atsFormat: '형식',
-    atsDates: '날짜',
-    atsExperience: '경력',
-    atsEducation: '학력',
-    atsSummary: '요약',
-    jobDescriptionPlaceholder: '특정 직무에 맞춰 이력서를 비교하려면 채용공고를 여기에 붙여넣으세요 (선택 사항)',
-    jobMatchToggle: '직무 매칭',
-    jobMatchTitle: '채용공고와 비교',
-    foundInResume: '이력서에 있음',
-    missingFromResume: '이력서에 없음',
-    addToSkills: '기술에 추가',
-    addedToSkills: '기술에 추가됨',
-    noMissingKeywords: '채용공고의 모든 키워드가 이력서에 이미 있습니다',
-    noJobDescription: '위에 채용공고를 붙여넣으면 해당 직무에 맞는 키워드 매칭을 볼 수 있습니다.'
-  }
+export const en = {
+  appTitle: 'Github Link2PDF Resume Builder',
+  githubPlaceholder: 'Enter GitHub username (e.g. octocat)',
+  exportBtn: 'Export PDF',
+  languageLabel: 'Interface Language',
+  resumeDesignLabel: 'Resume Design:',
+  alignmentLabel: 'Alignment:',
+  saveJsonBtn: 'Save JSON',
+  alignLeft: 'Left',
+  alignCenter: 'Center',
+  alignJustify: 'Justify',
+  importBtn: 'Import',
+  randomDesignBtn: 'Random',
+  atsCheckBtn: 'ATS Check',
+  loadingGitHub: 'Loading GitHub data...',
+  invalidUsername: 'Please enter a valid GitHub username',
+  exportSuccess: 'PDF exported successfully!',
+  exportError: 'PDF export error',
+  jsonSaved: 'JSON file downloaded',
+  profileLoaded: 'Profile loaded successfully!',
+  fillInExperience: 'GitHub does not know your jobs or studies - add them in the Experience and Education sections.',
+  userNotFound: 'User not found or invalid format',
+  rateLimited: 'GitHub user not found or API limit reached',
+  editableHint: 'Tip: Click any text in the resume to edit it directly!',
+  atsScoreTitle: 'ATS Score',
+  atsBreakdownTitle: 'Score breakdown',
+  atsBreakdownLegend: 'Score (share of total). Contribution to the total = score × weight.',
+  atsWeightLabel: 'weight',
+  atsWeightTitle: 'Share of this criterion in the total score',
+  atsRecommendationsTitle: 'Recommendations',
+  atsStructure: 'Structure',
+  atsKeywords: 'Keywords',
+  atsContacts: 'Contacts',
+  atsFormat: 'Format',
+  atsDates: 'Dates',
+  atsExperience: 'Experience',
+  atsEducation: 'Education',
+  atsSummary: 'Summary',
+  jobDescriptionPlaceholder: 'Paste the job description here to match your resume against a specific role (optional)',
+  jobMatchToggle: 'Job match',
+  jobMatchTitle: 'Match against job description',
+  foundInResume: 'Found in resume',
+  missingFromResume: 'Missing from resume',
+  addToSkills: 'Add to skills',
+  addedToSkills: 'Added to skills',
+  noMissingKeywords: 'All job keywords are already present in your resume',
+  noJobDescription: 'Paste a job description above to see targeted keyword matching against that role.'
 } as const;
 
-export type TranslationKey = keyof (typeof translations)['en'];
+export type TranslationKey = keyof typeof en;
+export type TranslationDict = Record<TranslationKey, string>;
 
 export const defaultLang: Lang = 'en';
+
+/** Dictionaries that are ready synchronously; ru/ko are filled in lazily. */
+const loaded: Partial<Record<Lang, TranslationDict>> = { en };
+const pending: Partial<Record<Lang, Promise<TranslationDict>>> = {};
+
+/**
+ * Load (and cache) the UI dictionary for a language. English is always
+ * available; ru/ko are dynamic chunks fetched only when first needed.
+ */
+export function loadTranslations(lang: Lang): Promise<TranslationDict> {
+  if (lang === 'en' || loaded[lang]) {
+    return Promise.resolve(loaded[lang] ?? en);
+  }
+  pending[lang] ??= (lang === 'ru'
+    ? import('./i18n/ru').then(module => module.default)
+    : import('./i18n/ko').then(module => module.default)
+  ).then(dict => {
+    loaded[lang] = dict;
+    return dict;
+  });
+  return pending[lang]!;
+}
+
+/**
+ * Synchronous accessor. Returns the English dictionary until a
+ * non-English dictionary has finished loading, so callers always get
+ * usable strings.
+ */
+export function getTranslations(lang: Lang): TranslationDict {
+  return loaded[lang] ?? en;
+}
 
 /**
  * Look up a UI string for the given language, falling back to English.
  */
 export function tr(lang: Lang, key: TranslationKey): string {
-  return translations[lang]?.[key] ?? translations[defaultLang][key];
+  return getTranslations(lang)[key];
 }
