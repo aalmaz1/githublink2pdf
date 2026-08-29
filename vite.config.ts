@@ -1,7 +1,25 @@
 import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+/**
+ * The @fontsource packages list both woff2 and a legacy woff fallback for
+ * every font file. The app's build target is modern browsers, so the woff
+ * copies would only bloat the bundle. Drop them from the CSS before Vite
+ * resolves the url()s so only the woff2 assets ship.
+ */
+function stripWoffFallbacks(): Plugin {
+  return {
+    name: 'strip-woff-fallbacks',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.includes('@fontsource')) return;
+      return code.replace(/, url\([^)]*\.woff\)/g, '');
+    }
+  };
+}
 
 export default defineConfig({
+  plugins: [stripWoffFallbacks()],
   server: {
     host: '0.0.0.0',
     // Allow the sandbox preview proxy host so the live preview loads

@@ -1,3 +1,13 @@
+// Self-hosted fonts: the same Google Fonts files (Inter, Merriweather),
+// bundled locally via @fontsource so the app has no runtime dependency on
+// fonts.googleapis.com. Each weight CSS declares per-subset @font-face rules
+// with unicode-range, so browsers still download only the subsets in use.
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/merriweather/400.css';
+import '@fontsource/merriweather/700.css';
+import '@fontsource/merriweather/900.css';
 import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
 import { readResumeFromDom } from './resume-editor';
