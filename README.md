@@ -18,7 +18,7 @@ A network connection is required only for GitHub import (unauthenticated GitHub 
 
 ### Language support
 
-The UI chrome (buttons, labels, toasts) switches between English, Russian, and Korean. Resume section headings and ATS recommendations remain in English; a few ATS panel labels are not yet localized.
+The UI chrome (buttons, labels, toasts) and resume section headings switch between English, Russian, and Korean. ATS recommendations stay in English; a few ATS panel labels are not yet localized.
 
 ## Tech stack
 
@@ -74,20 +74,20 @@ GitHub unauthenticated API limits apply. If import fails with a rate-limit messa
 index.html                     # App shell and print styles
 src/
   main.ts                      # UI wiring: import, design, ATS, export, i18n
-  resume-builder.ts            # Renders resume HTML from data
+  resume-builder.ts            # Renders resume HTML from data (language-aware)
   github-provider.ts           # GitHub API + username parsing
   demo-profile.ts              # Built-in sample resume (no faker dependency)
-  translations.ts              # UI chrome strings (EN / RU / KO)
+  translations.ts              # UI + resume-heading strings (EN / RU / KO)
+  i18n/ru.ts, i18n/ko.ts       # Lazy-loaded RU / KO string dictionaries
   styles.css                   # UI chrome + 30 design themes
   designs/design-templates.ts  # The 30 design definitions + helpers
   services/ATSService.ts       # ATS scoring
   services/ExportService.ts    # A4 PDF export
   config/ats-keywords.ts       # Keyword banks used by the ATS checker
-  i18n/index.ts                # Resume-heading lookup and emoji cleanup
-  i18n/en.json                 # English resume section labels
   types.ts, types/ats.ts       # Resume and ATS data types
   utils/github-cache.ts        # localStorage cache for GitHub responses
   utils/logger.ts              # Console logger
+  utils/text.ts                # Text helpers (emoji cleanup)
 __tests__/                     # Vitest unit tests
 .github/workflows/ci.yml       # CI: type check, tests, build, coverage
 ```

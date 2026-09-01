@@ -6,7 +6,7 @@ import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { tr, Lang, TranslationKey, defaultLang, getTranslations, loadTranslations } from './translations';
 import { loadFonts } from './font-loader';
-import { cleanDuplicateEmojis } from './i18n/index';
+import { cleanDuplicateEmojis } from './utils/text';
 import { ATSService } from './services/ATSService';
 import { ATSResult } from './types/ats';
 import { DESIGNS, getRandomDesign } from './designs/design-templates';
@@ -87,9 +87,14 @@ async function updateInterfaceLanguage(lang: Lang): Promise<void> {
   setAria('export-pdf', t.exportBtn);
   setAria('ats-check', t.atsCheckBtn);
 
-  // Re-render the open ATS panel so its labels follow the new language
+  // Re-render the resume and the open ATS panel so section headings and
+  // labels follow the newly selected language.
   const openPanel = document.getElementById('ats-panel');
   const liveData = getCurrentResumeData();
+  const resumeContainer = document.getElementById('resume-container');
+  if (resumeContainer && liveData) {
+    updateUI(liveData, resumeContainer);
+  }
   if (openPanel && !openPanel.classList.contains('hidden') && liveData) {
     showATSResultPanel(atsService.analyze(liveData));
   }
@@ -127,7 +132,7 @@ async function updateInterfaceLanguage(lang: Lang): Promise<void> {
  */
 function updateUI(data: ResumeData, container: HTMLElement): void {
   currentResumeData = data;
-  renderResume(data, container);
+  renderResume(data, container, currentLang);
   applyTextAlign(container, currentTextAlign);
 }
 

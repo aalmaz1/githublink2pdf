@@ -8,9 +8,13 @@
  * object. Keep the two modules in sync when changing the markup.
  */
 import { ResumeData, TimeBoundedEntity } from './types';
-import { t } from './i18n';
+import { tr, Lang } from './translations';
 
-export function renderResume(data: ResumeData, container: HTMLElement): void {
+export function renderResume(
+  data: ResumeData,
+  container: HTMLElement,
+  lang: Lang = 'en'
+): void {
   container.innerHTML = '';
   
   // 1. Header (PositionedBlock)
@@ -51,24 +55,24 @@ export function renderResume(data: ResumeData, container: HTMLElement): void {
   // section would leave nowhere to click. The placeholder text lives in CSS
   // (`::before`), so it is never read back as data and never reaches the PDF.
   container.appendChild(
-    renderSection(t('common.experience', 'Experience'), data.experience ?? [], 'experience')
+    renderSection(tr(lang, 'resumeSectionExperience'), data.experience ?? [], 'experience', lang)
   );
 
   if (data.projects?.length) {
     container.appendChild(
-      renderSection(t('common.projects', 'Projects'), data.projects, 'projects')
+      renderSection(tr(lang, 'resumeSectionProjects'), data.projects, 'projects', lang)
     );
   }
 
   container.appendChild(
-    renderSection(t('common.education', 'Education'), data.education ?? [], 'education')
+    renderSection(tr(lang, 'resumeSectionEducation'), data.education ?? [], 'education', lang)
   );
 
   // 3. Skills Grid
   if (data.skills?.length) {
     const section = createBlock('section-block');
     section.dataset.section = 'skills';
-    section.appendChild(createLine('h3', t('common.skills', 'Skills')));
+    section.appendChild(createLine('h3', tr(lang, 'resumeSectionSkills')));
     
     const skillsList = document.createElement('ul');
     skillsList.className = 'skills-grid';
@@ -128,7 +132,8 @@ function createLine(tag: string, text: string, field?: string): HTMLElement {
 function renderSection(
   title: string,
   items: TimeBoundedEntity[],
-  sectionName: 'experience' | 'education' | 'projects'
+  sectionName: 'experience' | 'education' | 'projects',
+  lang: Lang
 ): HTMLElement {
   const section = createBlock('section-block');
   section.dataset.section = sectionName;
@@ -141,7 +146,7 @@ function renderSection(
   // entry unless the user actually fills it in.
   if (items.length === 0) {
     section.classList.add('section-empty');
-    section.appendChild(createPlaceholderEntity(sectionName));
+    section.appendChild(createPlaceholderEntity(sectionName, lang));
     return section;
   }
 
@@ -191,7 +196,10 @@ function renderSection(
  * `resume-editor.ts` and end up in the exported resume as if the user had
  * claimed it.
  */
-function createPlaceholderEntity(sectionName: 'experience' | 'education' | 'projects'): HTMLElement {
+function createPlaceholderEntity(
+  sectionName: 'experience' | 'education' | 'projects',
+  lang: Lang
+): HTMLElement {
   const isEducation = sectionName === 'education';
 
   const itemBlock = createBlock('entity-item');
@@ -204,8 +212,8 @@ function createPlaceholderEntity(sectionName: 'experience' | 'education' | 'proj
   const roleSpan = document.createElement('strong');
   roleSpan.dataset.field = 'role';
   roleSpan.dataset.placeholder = isEducation
-    ? t('placeholders.degree', 'Degree')
-    : t('placeholders.jobTitle', 'Job title');
+    ? tr(lang, 'placeholderDegree')
+    : tr(lang, 'placeholderJobTitle');
   leftSpan.appendChild(roleSpan);
 
   leftSpan.appendChild(document.createTextNode(' - '));
@@ -213,13 +221,13 @@ function createPlaceholderEntity(sectionName: 'experience' | 'education' | 'proj
   const institutionSpan = document.createElement('span');
   institutionSpan.dataset.field = 'institution';
   institutionSpan.dataset.placeholder = isEducation
-    ? t('placeholders.school', 'School')
-    : t('placeholders.company', 'Company');
+    ? tr(lang, 'placeholderSchool')
+    : tr(lang, 'placeholderCompany');
   leftSpan.appendChild(institutionSpan);
 
   const periodSpan = document.createElement('span');
   periodSpan.dataset.field = 'period';
-  periodSpan.dataset.placeholder = t('placeholders.period', 'Period');
+  periodSpan.dataset.placeholder = tr(lang, 'placeholderPeriod');
 
   headerLine.appendChild(leftSpan);
   headerLine.appendChild(periodSpan);
@@ -228,7 +236,7 @@ function createPlaceholderEntity(sectionName: 'experience' | 'education' | 'proj
   const ul = document.createElement('ul');
   const li = document.createElement('li');
   li.dataset.field = 'description';
-  li.dataset.placeholder = t('placeholders.achievement', 'What you did and what it achieved');
+  li.dataset.placeholder = tr(lang, 'placeholderAchievement');
   ul.appendChild(li);
   itemBlock.appendChild(ul);
 
