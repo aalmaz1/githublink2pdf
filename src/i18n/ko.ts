@@ -47,10 +47,24 @@ const ko: TranslationDict = {
     jobMatchTitle: '채용공고와 비교',
     foundInResume: '이력서에 있음',
     missingFromResume: '이력서에 없음',
-    addToSkills: '기술에 추가',
-    addedToSkills: '기술에 추가됨',
-    noMissingKeywords: '채용공고의 모든 키워드가 이력서에 이미 있습니다',
-    noJobDescription: '위에 채용공고를 붙여넣으면 해당 직무에 맞는 키워드 매칭을 볼 수 있습니다.'
+  addToSkills: '기술에 추가',
+  addedToSkills: '기술에 추가됨',
+  noMissingKeywords: '채용공고의 모든 키워드가 이력서에 이미 있습니다',
+  noJobDescription: '위에 채용공고를 붙여넣으면 해당 직무에 맞는 키워드 매칭을 볼 수 있습니다.',
+
+  // Resume section headings (rendered by resume-builder.ts).
+  resumeSectionExperience: '경력',
+  resumeSectionProjects: '프로젝트',
+  resumeSectionEducation: '학력',
+  resumeSectionSkills: '기술',
+
+  // Placeholder hints for empty resume entries, drawn via CSS `data-placeholder`.
+  placeholderJobTitle: '직무',
+  placeholderDegree: '학위',
+  placeholderCompany: '회사',
+  placeholderSchool: '학교',
+  placeholderPeriod: '예: 2021 — 현재',
+  placeholderAchievement: '수행한 작업과 달성한 결과'
 };
 
 export default ko;

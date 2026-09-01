@@ -47,10 +47,24 @@ const ru: TranslationDict = {
     jobMatchTitle: 'Сопоставление с вакансией',
     foundInResume: 'Есть в резюме',
     missingFromResume: 'Не хватает в резюме',
-    addToSkills: 'Добавить в навыки',
-    addedToSkills: 'Добавлено в навыки',
-    noMissingKeywords: 'Все ключевые слова из вакансии уже есть в резюме',
-    noJobDescription: 'Вставьте текст вакансии выше, чтобы увидеть целевое сопоставление ключевых слов.'
+  addToSkills: 'Добавить в навыки',
+  addedToSkills: 'Добавлено в навыки',
+  noMissingKeywords: 'Все ключевые слова из вакансии уже есть в резюме',
+  noJobDescription: 'Вставьте текст вакансии выше, чтобы увидеть целевое сопоставление ключевых слов.',
+
+  // Resume section headings (rendered by resume-builder.ts).
+  resumeSectionExperience: 'Опыт',
+  resumeSectionProjects: 'Проекты',
+  resumeSectionEducation: 'Образование',
+  resumeSectionSkills: 'Навыки',
+
+  // Placeholder hints for empty resume entries, drawn via CSS `data-placeholder`.
+  placeholderJobTitle: 'Должность',
+  placeholderDegree: 'Степень',
+  placeholderCompany: 'Компания',
+  placeholderSchool: 'Учебное заведение',
+  placeholderPeriod: 'например, 2021 — Наст. время',
+  placeholderAchievement: 'Что вы делали и чего достигли'
 };
 
 export default ru;

@@ -54,7 +54,21 @@ export const en = {
   addToSkills: 'Add to skills',
   addedToSkills: 'Added to skills',
   noMissingKeywords: 'All job keywords are already present in your resume',
-  noJobDescription: 'Paste a job description above to see targeted keyword matching against that role.'
+  noJobDescription: 'Paste a job description above to see targeted keyword matching against that role.',
+
+  // Resume section headings (rendered by resume-builder.ts).
+  resumeSectionExperience: 'Experience',
+  resumeSectionProjects: 'Projects',
+  resumeSectionEducation: 'Education',
+  resumeSectionSkills: 'Skills',
+
+  // Placeholder hints for empty resume entries, drawn via CSS `data-placeholder`.
+  placeholderJobTitle: 'Job title',
+  placeholderDegree: 'Degree',
+  placeholderCompany: 'Company',
+  placeholderSchool: 'School',
+  placeholderPeriod: 'e.g. 2021 — Present',
+  placeholderAchievement: 'What you did and what it achieved'
 } as const;
 
 export type TranslationKey = keyof typeof en;
