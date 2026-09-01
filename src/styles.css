@@ -1038,6 +1038,17 @@ body.theme-impact .entity-item {
   align-items: center;
 }
 
+/* Keep the app title ("Github Link2PDF Resume Builder") on its own row across
+   all languages. Without this, shorter translations (e.g. Korean) let the
+   title and the design group fit on the same 850px row, while longer ones
+   (EN/RU) wrap — making the layout inconsistent between languages. Forcing the
+   title group to span the full width guarantees it always sits on the line
+   above the design controls. */
+.theme-group {
+  flex-basis: 100%;
+  justify-content: center;
+}
+
 /* Design Select Dropdown - Same styling as the language selector */
 .design-select {
   padding: 10px 16px;
