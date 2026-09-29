@@ -32,9 +32,9 @@ const data: ResumeData = {
   skills: ['Algorithms', { category: 'Tools', items: ['Git'] }]
 };
 
-/** A 1×1 transparent PNG — enough for jsPDF to embed as a page image. */
-const TINY_PNG =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+/** A 1×1 white JPEG — enough for jsPDF to embed as a page image. */
+const TINY_JPEG =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwcJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPDs0NDT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==';
 
 function makeWord(text: string, topPx: number, xPx = 10): TextWord {
   return {
@@ -55,7 +55,7 @@ function makeWord(text: string, topPx: number, xPx = 10): TextWord {
  */
 function makeCapture(wordsPerPage: TextWord[][]): CapturedPreview {
   const pages: PreviewPage[] = wordsPerPage.map(words => ({
-    canvas: { toDataURL: () => TINY_PNG } as unknown as HTMLCanvasElement,
+    canvas: { toDataURL: () => TINY_JPEG } as unknown as HTMLCanvasElement,
     widthMm: 210,
     heightMm: 297,
     words

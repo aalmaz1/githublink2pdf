@@ -37,8 +37,10 @@ This project bundles the following font families, self-hosted from the
 - License: SIL Open Font License 1.1 (full text below)
 - `src/assets/fonts/Inter-Regular.ttf` and `Inter-Bold.ttf` are the same
   Inter family (from the `inter-ui` distribution, OFL license text in
-  `src/assets/fonts/INTER-OFL-LICENSE.txt`), converted to TTF so the PDF
-  export can embed a Unicode font for the invisible text layer
+  `src/assets/fonts/INTER-OFL-LICENSE.txt`), converted to TTF and statically
+  subset (fonttools/pyftsubset, no hinting or layout features) to exactly
+  the Unicode ranges the PDF text layer keeps, so the embedded font adds
+  only ~40 KB compressed per PDF instead of ~650 KB
 
 ## Merriweather
 

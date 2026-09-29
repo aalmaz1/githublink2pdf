@@ -57,6 +57,19 @@ const PX_TO_PT = 72 / 96;
 /** Where the text baseline sits inside a line box, roughly. */
 const BASELINE_RATIO = 0.8;
 
+/**
+ * Page raster encoding.
+ *
+ * A lossless PNG of a text page at 192 dpi weighs megabytes — a multi-page
+ * export landed north of 20 MB. Pages are therefore embedded as JPEG: at
+ * quality 0.92 the anti-aliased text is visually indistinguishable from the
+ * preview, and a full A4 page drops to a few hundred kilobytes. jsPDF
+ * passes JPEG bytes through untouched (DCTDecode), so the PDF weighs
+ * essentially the sum of its page images.
+ */
+const PAGE_IMAGE_FORMAT = 'JPEG';
+const PAGE_IMAGE_QUALITY = 0.92;
+
 /** Name under which the text-layer font is registered in jsPDF. */
 const TEXT_FONT = 'Inter';
 
@@ -65,11 +78,13 @@ const TEXT_FONT = 'Inter';
  *
  * jsPDF's built-in Helvetica cannot encode Cyrillic, so a Russian resume's
  * invisible text layer would come out empty and unreadable to ATS parsers.
- * The app already self-hosts Inter (OFL, see assets/fonts) for the preview —
- * the same family embedded as a TTF gives the text layer full Latin +
- * Cyrillic + Greek coverage. Loaded once, lazily, on first export; if the
- * fetch fails for any reason the layer silently falls back to Helvetica
- * (Latin resumes are unaffected).
+ * The same Inter family the preview uses is embedded as a TTF, giving the
+ * text layer full Latin + Cyrillic + Greek coverage. The shipped files are
+ * statically subset to exactly the ranges `sanitizeForPdf` keeps (and
+ * stripped of hinting/layout tables), which cuts them from ~320 KB to
+ * ~77 KB each; flate-compressed in the PDF they cost ~40 KB per document.
+ * Loaded once, lazily, on first export; if the fetch fails the layer
+ * silently falls back to Helvetica (Latin resumes are unaffected).
  */
 let embeddedFontCache: { regular: string; bold: string } | null = null;
 
@@ -169,11 +184,17 @@ export class ExportService {
 
   /**
    * Place one page's raster, scaled to fill the A4 page exactly.
+   *
+   * JPEG (see PAGE_IMAGE_FORMAT): jsPDF passes the encoded bytes through
+   * with DCTDecode, so no re-compression bloat happens and the page costs
+   * what the browser's encoder produced. The raster is drawn on a white
+   * background by the capture stage, so the opaque JPEG has no artifacts
+   * from fake transparency.
    */
   private renderPageImage(doc: JsPdfType, page: PreviewPage): void {
     doc.addImage(
-      page.canvas.toDataURL('image/png'),
-      'PNG',
+      page.canvas.toDataURL(PAGE_IMAGE_FORMAT, PAGE_IMAGE_QUALITY),
+      PAGE_IMAGE_FORMAT,
       0,
       0,
       page.widthMm,
