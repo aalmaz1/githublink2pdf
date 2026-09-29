@@ -7,8 +7,12 @@
  * dynamic chunks right after first render, so the UI paints immediately in
  * system fonts and swaps to Inter/Merriweather the moment they arrive
  * (font-display: swap is already set by the @font-face rules).
+ *
+ * The returned promise resolves once the stylesheets are in the document —
+ * the PDF export awaits it so the printed resume never falls back to system
+ * fonts. A font fetch failure must never disturb the app itself.
  */
-export function loadFonts(): void {
+export function loadFonts(): Promise<void> {
   const imports: Array<Promise<unknown>> = [
     import('@fontsource/inter/400.css'),
     import('@fontsource/inter/500.css'),
@@ -17,6 +21,9 @@ export function loadFonts(): void {
     import('@fontsource/merriweather/700.css'),
     import('@fontsource/merriweather/900.css')
   ];
-  // A font fetch failure must never disturb the app itself.
-  Promise.all(imports).catch(() => undefined);
+
+  return Promise.all(imports).then(
+    () => undefined,
+    () => undefined
+  );
 }

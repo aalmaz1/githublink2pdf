@@ -1,7 +1,7 @@
 import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
 import { readResumeFromDom } from './resume-editor';
-import { ExportService } from './services/ExportService';
+import { ExportService, PRINT_QUERY_FLAG, PrintHandoff } from './services/ExportService';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { tr, Lang, TranslationKey, defaultLang, getTranslations, loadTranslations } from './translations';
@@ -26,6 +26,54 @@ const LANG_FLAGS: Record<Lang, string> = {
 };
 const atsService = new ATSService();
 const exportService = new ExportService();
+
+/**
+ * Everything a separate printing tab needs to rebuild what is on screen.
+ *
+ * An embedded window (e.g. this app inside an iframe preview) cannot print
+ * itself, so `ExportService` hands this payload to a standalone tab, which
+ * restores it and opens the print dialog there.
+ */
+function buildPrintHandoff(data: ResumeData): PrintHandoff {
+  return {
+    data,
+    design: currentDesign,
+    align: currentTextAlign,
+    lang: currentLang,
+    fileName: `${slugify(data.personal.name)}-resume.pdf`
+  };
+}
+
+/**
+ * Fit-to-width preview zoom.
+ *
+ * The sheet is a fixed 210mm wide — that is the point of it — so on a narrow
+ * window it would overflow sideways. `zoom` shrinks it for display only: the
+ * layout boxes, and therefore the page guides and the printed pages, stay
+ * proportional to each other. The print stylesheet pins zoom back to 1.
+ */
+function fitPreviewToWidth(): void {
+  const container = document.getElementById('resume-container');
+  const wrapper = container?.parentElement;
+  if (!container || !wrapper) return;
+
+  const SHEET_WIDTH_PX = (210 * 96) / 25.4; // 210mm at 96dpi
+  // The floating language/theme buttons hug the left edge: keep the sheet
+  // clear of them instead of letting them sit on top of the paper.
+  const RESERVED_LEFT_GUTTER_PX = 88;
+  const styles = getComputedStyle(wrapper);
+  const gutter = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+  const gap = parseFloat(styles.gap);
+  const panel = document.getElementById('ats-panel');
+  const panelWidth =
+    panel && styles.flexDirection === 'row' && !panel.classList.contains('hidden')
+      ? panel.getBoundingClientRect().width + (Number.isFinite(gap) ? gap : 0)
+      : 0;
+
+  const available = wrapper.clientWidth - gutter - panelWidth - RESERVED_LEFT_GUTTER_PX;
+  const scale = Math.min(1, Math.max(0.3, available / SHEET_WIDTH_PX));
+  container.style.setProperty('--preview-zoom', scale.toFixed(3));
+}
 
 /** The job description the user pasted, kept so re-renders don't lose it. */
 let currentJobDescription = '';
@@ -85,6 +133,9 @@ async function updateInterfaceLanguage(lang: Lang): Promise<void> {
   setAria('import-github', t.importBtn);
   setAria('save-json', t.saveJsonBtn);
   setAria('export-pdf', t.exportBtn);
+  // The export button opens the print dialog, so say so in the tooltip.
+  const exportHintEl = document.getElementById('export-pdf');
+  if (exportHintEl) exportHintEl.title = t.exportBtnHint;
   setAria('ats-check', t.atsCheckBtn);
 
   // Re-render the resume and the open ATS panel so section headings and
@@ -303,9 +354,36 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLang = savedLang;
   }
   
+  // A framed window asks this tab to print the resume it was showing
+  // (see ExportService): restore that state before the first render.
+  const printHandoff = new URLSearchParams(window.location.search).has(PRINT_QUERY_FLAG)
+    ? exportService.readHandoffFromLocation()
+    : null;
+  if (printHandoff) {
+    if (['en', 'ru', 'ko'].includes(printHandoff.lang)) {
+      currentLang = printHandoff.lang as Lang;
+    }
+    if (['left', 'center', 'justify'].includes(printHandoff.align)) {
+      currentTextAlign = printHandoff.align;
+    }
+    if (DESIGNS.some(d => d.id === printHandoff.design)) {
+      currentDesign = printHandoff.design;
+    }
+  }
+
   // Initial render
-  updateUI(defaultData, container);
+  updateUI(printHandoff?.data ?? defaultData, container);
   void updateInterfaceLanguage(currentLang);
+
+  // Keep the sheet at a comfortable size on narrow windows.
+  fitPreviewToWidth();
+  window.addEventListener('resize', () => requestAnimationFrame(fitPreviewToWidth));
+  if (typeof ResizeObserver === 'function') {
+    const previewObserver = new ResizeObserver(() => requestAnimationFrame(fitPreviewToWidth));
+    if (container.parentElement) previewObserver.observe(container.parentElement);
+    const atsPanel = document.getElementById('ats-panel');
+    if (atsPanel) previewObserver.observe(atsPanel);
+  }
 
   // Start fetching the font stylesheets right after first render; the UI
   // paints immediately and swaps fonts in once they arrive.
@@ -407,6 +485,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // A print hand-off carries the design and alignment the printing tab's
+  // localStorage does not know about (storage is per-origin and may be
+  // partitioned away from the framed window). Re-apply them here, after the
+  // design selector has read its stored value, and sync the controls.
+  if (printHandoff) {
+    applyDesign(
+      DESIGNS.some(d => d.id === printHandoff.design) ? printHandoff.design : currentDesign
+    );
+    const designSelect = document.getElementById('design-select') as HTMLSelectElement | null;
+    if (designSelect) designSelect.value = currentDesign;
+    document.querySelectorAll('.align-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-align') === currentTextAlign);
+    });
+    applyTextAlign(container, currentTextAlign);
+  }
+
   // GitHub Import with Loader and Validation
   const importBtn = document.getElementById('import-github');
   const githubInput = document.getElementById('github-url') as HTMLInputElement;
@@ -469,26 +563,24 @@ document.addEventListener('DOMContentLoaded', () => {
     showNotification(tr(currentLang, 'jsonSaved'), 'success');
   });
 
-  // PDF Export with notification
+  // PDF export: hand the resume to the browser's own print pipeline. The
+  // preview is a real A4 sheet, so "Save as PDF" reproduces it 1:1 — vector
+  // text, exact theme colours, a couple of hundred kilobytes.
   const exportPdfBtn = document.getElementById('export-pdf');
   exportPdfBtn?.addEventListener('click', async () => {
     const data = getCurrentResumeData();
     if (!data) return;
     try {
-      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`);
-      showNotification(tr(currentLang, 'exportSuccess'), 'success');
+      // The print dialog is modal, so the guidance has to be on screen before
+      // it opens — a toast fired afterwards would not be read.
+      showNotification(tr(currentLang, 'exportSuccess'), 'info');
+      await exportService.exportToPdf(buildPrintHandoff(data));
     } catch (error) {
       console.error('PDF export error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       showNotification(`${tr(currentLang, 'exportError')}: ${errorMessage}`, 'error');
     }
   });
-
-  // Start downloading the PDF library as soon as the user shows intent, so
-  // the click-to-export feels instant. Prefetch failures are harmless: the
-  // real export call above loads (and surfaces errors) on its own.
-  exportPdfBtn?.addEventListener('pointerenter', () => exportService.prefetchPdf());
-  exportPdfBtn?.addEventListener('focus', () => exportService.prefetchPdf());
 
   // ATS Check Button - Toggle panel visibility
   document.getElementById('ats-check')?.addEventListener('click', () => {
@@ -555,6 +647,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const collapsed = jobBar.classList.toggle('collapsed');
       jobToggle.setAttribute('aria-pressed', String(collapsed));
     });
+  }
+
+  // This tab was opened to print another window's resume (see
+  // ExportService). Print once the fonts are in: they load as dynamic chunks
+  // here, and a PDF set in fallback fonts would not match the sheet the user
+  // approved. The `?print` flag is dropped first so a reload does not print.
+  if (printHandoff) {
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete(PRINT_QUERY_FLAG);
+    window.history.replaceState(null, '', cleanUrl.toString());
+
+    void loadFonts()
+      .then(() => exportService.printCurrentDocument(printHandoff.fileName))
+      .catch(() => showNotification(tr(currentLang, 'exportError'), 'error'));
   }
 });
 

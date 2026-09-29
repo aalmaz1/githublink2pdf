@@ -78,6 +78,14 @@
   
   /* Spacing Unit */
   --spacing-unit: 8px;
+
+  /* ------------------------------------------------------------------
+     A4 sheet geometry — shared by the on-screen preview and the print
+     stylesheet, so a page on screen is literally a page in the PDF.
+     ------------------------------------------------------------------ */
+  --page-width: 210mm;
+  --page-height: 297mm;
+  --page-padding: 18mm;
 }
 
 [data-theme="dark"] {
@@ -1244,24 +1252,46 @@ input[type="text"]:focus {
 /* Resume Preview Container - Fixed A4 Layout
    Uses Inter font for optimal screen and print readability */
 #resume-container {
-  /* Фиксированные размеры A4 */
-  width: 210mm;
-  min-height: 297mm;
-  margin: 20px auto;
-  padding: 20mm;
+  /* A real A4 sheet: exactly one printed page (and one more sheet per extra
+     297mm of content), so the preview is a truthful preview and the exported
+     PDF never has to reflow. See the print block at the end of this file. */
+  position: relative;
+  width: var(--page-width);
+  min-height: var(--page-height);
+  margin: 0 auto;
+  padding: var(--page-padding);
   background: var(--resume-bg);
   color: var(--resume-text);
   border: none;
-  border-radius: 0;
-  box-shadow: 
-    0 4px 6px rgba(0, 0, 0, 0.07),
-    0 2px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.10),
+    0 10px 30px rgba(15, 23, 42, 0.16);
   box-sizing: border-box;
   overflow: visible;
+  /* Fit-to-width zoom, set from JS when the window is narrower than a page;
+     the print stylesheet pins it back to 1. */
+  zoom: var(--preview-zoom, 1);
   /* Modern typography stack for resume */
   font-size: 11pt;
   font-family: var(--font-resume);
   line-height: var(--leading-normal);
+}
+
+/* Page-boundary guides: a hairline every 297mm, i.e. exactly where the
+   printed page breaks (the printer cuts between line boxes, so content keeps
+   its position). Screen only — hidden in the print stylesheet. */
+#resume-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 calc(var(--page-height) - 1px),
+    rgba(15, 23, 42, 0.25) calc(var(--page-height) - 1px),
+    rgba(15, 23, 42, 0.25) var(--page-height)
+  );
 }
 
 /* Layout Primitives */
@@ -1336,16 +1366,10 @@ input[type="text"]:focus {
 /* Text alignment support for print */
 .section-block {
   text-align: left; /* Default, overridden by JS */
-  page-break-inside: avoid;
-  break-inside: avoid;
 }
 
 p {
   line-height: 1.5;
-  orphans: 2;
-  widows: 2;
-  page-break-inside: avoid;
-  break-inside: avoid;
   hyphens: auto;
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
@@ -1393,8 +1417,6 @@ ul {
   padding-left: 20px;
   margin-top: 6px;
   color: var(--color-secondary);
-  page-break-inside: avoid;
-  break-inside: avoid;
 }
 
 li {
@@ -1402,10 +1424,6 @@ li {
   color: #475569; /* Increased contrast for WCAG AA compliance (4.5:1) */
   margin-bottom: 4px;
   line-height: var(--leading-normal);
-  page-break-inside: avoid;
-  break-inside: avoid;
-  orphans: 2;
-  widows: 2;
 }
 
 
@@ -1417,107 +1435,118 @@ li {
 }
 
 
-/* @media print overrides - for native browser print (backup) */
+/* ---------------------------------------------------------------------------
+   @media print — the sheet IS the page.
+   The preview is a real A4 sheet with the same padding, fonts, colours and
+   type size the printer uses, so the layout is not recreated on export: the
+   PDF holds exactly the content that followed each page guide on screen,
+   except where a block that would be split by the boundary moves to the next
+   page (see the break rules at the end of this block). Colours are preserved
+   (print-color-adjust: exact) because the design theme the user picked is
+   part of what they approved.
+   --------------------------------------------------------------------------- */
 @media print {
   @page {
-    margin: 0;
     size: A4;
-  }
-  @page:first {
-    margin: 0;
-  }
-  @page:left {
-    margin: 0;
-  }
-  @page:right {
     margin: 0;
   }
 
+  html,
   body {
-    background: white !important;
-    color: black !important;
-    margin: 0;
-    padding: 0;
-    font-size: 12pt;
-    print-color-adjust: exact;
+    /* The sheet carries the page margins itself; the page box gets none. */
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    min-height: 0 !important;
+    display: block !important;
+    background: #fff !important;
+    background-image: none !important;
     -webkit-print-color-adjust: exact;
-    -webkit-margin-before: 0;
-    -webkit-margin-after: 0;
+    print-color-adjust: exact;
   }
 
+  /* App chrome never reaches the paper. */
   .controls-bar,
+  .job-match-bar,
+  .lang-toggle-wrap,
+  .theme-toggle-floating,
+  #editable-hint,
   #loading-overlay,
-  .theme-toggle-floating {
+  #toast-notification,
+  #ats-panel,
+  .ats-panel {
     display: none !important;
   }
 
-  #resume-container {
-    margin: 0 !important;
-    padding: 15mm !important; /* Same as screen */
-    border: none !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    min-height: auto;
-    background: white !important;
-    color: black !important;
+  .main-content-wrapper {
+    display: block !important;
+    width: auto !important;
     max-width: none !important;
-    position: static !important;
-    float: none !important;
-    clear: both !important;
-    overflow: visible !important;
-    height: auto !important;
-  }
-
-  /* Force text visibility */
-  * {
-    color: black !important;
-    background: transparent !important;
-  }
-
-  a {
-    text-decoration: underline;
-    color: #000 !important;
-  }
-
-  /* Prevent page breaks inside sections */
-  .entity-item,
-  .section-block,
-  .positioned-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  .resume-header {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-    margin-bottom: 10px !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  h1, h2, h3 {
-    page-break-after: avoid;
-    margin-top: 0 !important;
-  }
-
-  h1, h2, h3, p, ul, li {
-    orphans: 2;
-    widows: 2;
-    margin-top: 0;
-  }
-
-  /* Ensure content starts from top */
-  html, body {
-    height: auto !important;
-    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
-  h1, h2 {
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-    hyphens: auto;
+  #resume-container {
+    /* Undo the on-screen fit-to-width zoom and the sheet chrome. */
+    zoom: 1 !important;
+    width: var(--page-width) !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: var(--page-padding) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Page guides are a screen affordance. */
+  #resume-container::after {
+    display: none !important;
+  }
+
+  #resume-container,
+  #resume-container * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Let text flow across pages exactly as it flows down the sheet: no forced
+     "keep together" breaks, so the page guides the user saw are literally
+     where the printer cuts. Browsers still break between line boxes, never
+     through a line of text. */
+  h1,
+  h2,
+  h3,
+  p,
+  ul,
+  ol,
+  li,
+  .positioned-block,
+  .section-block,
+  .entity-item,
+  .skills-grid,
+  .layout-line {
+    break-inside: auto;
+    page-break-inside: auto;
+    break-before: auto;
+    page-break-before: auto;
+    break-after: auto;
+    page-break-after: auto;
+    orphans: 1;
+    widows: 1;
+  }
+
+  /* A section heading is never left alone at the foot of a page: it travels
+     with at least the first line of its section. */
+  .section-block h3,
+  .entity-item .layout-line {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Links keep the design's look instead of turning printer blue. */
+  a {
+    color: inherit;
+    text-decoration: inherit;
   }
 }
 
@@ -1769,13 +1798,7 @@ li {
   }
 
   #resume-container {
-    width: 100%;
-    padding: 15mm;
     margin: 15px auto;
-  }
-
-  h1 {
-    font-size: 2.5em;
   }
 }
 
@@ -1806,25 +1829,7 @@ li {
   }
 
   #resume-container {
-    padding: 10mm;
     margin: 10px auto;
-    min-height: auto;
-  }
-
-  h1 {
-    font-size: 2em;
-  }
-
-  h2 {
-    font-size: 1.3em;
-  }
-
-  h3 {
-    font-size: 1.1em;
-  }
-
-  .skills-grid {
-    grid-template-columns: 1fr;
   }
 
   /* Adjust floating button for mobile */
@@ -1878,24 +1883,7 @@ li {
   }
 
   #resume-container {
-    padding: 8mm;
     margin: 5px auto;
-  }
-
-  h1 {
-    font-size: 1.8em;
-  }
-
-  h2 {
-    font-size: 1.2em;
-  }
-
-  ul {
-    padding-left: 15px;
-  }
-
-  li {
-    font-size: 0.85rem;
   }
 
   .theme-toggle-floating {
@@ -1916,15 +1904,12 @@ li {
     overflow-y: auto;
   }
 
-  #resume-container {
-    transform: scale(0.9);
-    transform-origin: top center;
-  }
 }
 
 /* Main Content Layout - Resume + ATS Panel Side by Side */
 .main-content-wrapper {
   display: flex;
+  justify-content: center;
   gap: 20px;
   max-width: 1400px;
   width: 100%;
@@ -1942,14 +1927,13 @@ li {
 }
 
 #resume-container {
-  flex: 0 0 75%;
-  max-width: 75%;
-  background: var(--resume-bg);
-  color: var(--resume-text);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 30px;
-  min-height: 800px;
+  /* The A4 sheet rule above owns the size, padding and shadow; flex only
+     places the sheet next to the ATS sidebar.
+     Deliberately viewport-independent: on narrow screens the sheet is scaled
+     with `zoom` (see main.ts), never re-typeset — otherwise the preview would
+     stop matching the printed page. */
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 /* ATS Panel - Sticky Sidebar */
@@ -2344,7 +2328,8 @@ li {
   }
   
   #resume-container {
-    flex: 1;
+    flex: 0 0 auto;
+    align-self: center;
     max-width: 100%;
   }
   
@@ -2357,12 +2342,6 @@ li {
 
 /* Additional mobile fixes for screens below 768px */
 @media (max-width: 768px) {
-  #resume-container {
-    width: 100%;
-    max-width: 100%;
-    padding: 20px !important;
-  }
-  
   /* Ensure no element overflows viewport */
   img, svg, canvas {
     max-width: 100%;

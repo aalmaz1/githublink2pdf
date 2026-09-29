@@ -1,4 +1,3 @@
-import { fileURLToPath, URL } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { minify } from 'html-minifier-terser';
 
@@ -54,16 +53,6 @@ export default defineConfig({
     // Allow the sandbox preview proxy host so the live preview loads
     allowedHosts: true
   },
-  resolve: {
-    alias: [
-      // jsPDF lazily imports these renderers for its `.html()`/SVG features,
-      // which this app never uses. Pointing them at a throwing stub stops
-      // ~376 KB of dead chunks (html2canvas, canvg, dompurify) from shipping.
-      { find: 'html2canvas', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) },
-      { find: 'canvg', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) },
-      { find: 'dompurify', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) }
-    ]
-  },
   build: {
     target: 'esnext',
     // Enable tree shaking and minification
@@ -73,8 +62,5 @@ export default defineConfig({
     // Never inline CSS as a data: URI: a tiny stylesheet like fonts.css
     // must stay a real file so it can load non-blocking (media="print" trick).
     assetsInlineLimit: 0
-  },
-  optimizeDeps: {
-    include: ['jspdf']
   }
 });
