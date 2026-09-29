@@ -1,22 +1,20 @@
 /**
- * Export Service - generates a text-based PDF resume.
+ * Export Service - generates a text-based PDF resume in the selected design.
  *
  * The previous implementation rasterised the preview with html2canvas, which
  * produced a PDF containing a single flat image. Applicant Tracking Systems
  * parse PDFs as text, so such a file reads as empty to them — the exact
  * failure this app is meant to help users avoid. We therefore lay the resume
  * out directly with jsPDF, emitting real, selectable, machine-readable text.
+ *
+ * The visual recipe of the selected design (see `design-templates.ts`) is
+ * applied on top of that layout: page backgrounds, header and section
+ * background boxes, accent bars, rules, frames and the theme's text
+ * colours — the PDF mirrors what the preview shows, while staying text.
  */
 import type { jsPDF as JsPdfType } from 'jspdf';
 import { ResumeData, SkillCategory, TimeBoundedEntity } from './../types';
-import { getDesignPdfTokens, PdfDesignTokens, Rgb } from './../designs/design-templates';
-
-/**
- * Body copy stays black regardless of the theme. The design only colours the
- * accents (name, section headings, rule, dates) so the document keeps full
- * ATS readability and stays sensible when printed in monochrome.
- */
-const BODY_TEXT: Rgb = [0, 0, 0];
+import { getDesignPdfTheme, isWhite, PdfFont, PdfTheme, Rgb } from './../designs/design-templates';
 
 /** A4 page geometry, in millimetres. */
 const PAGE_WIDTH = 210;
@@ -38,6 +36,18 @@ const LINE_HEIGHT = 4.6;
 const SECTION_GAP = 5.5;
 const ENTITY_GAP = 3.4;
 const BULLET_INDENT = 4.5;
+
+/** Box paddings, in millimetres. */
+const BOX_PAD_V = 1.3;
+const BOX_PAD_H = 4;
+const CHIP_PAD_V = 2;
+const CHIP_PAD_H = 4;
+
+const JSPDF_FONTS: Record<PdfFont, string> = {
+  sans: 'helvetica',
+  serif: 'times',
+  mono: 'courier'
+};
 
 /**
  * Strip characters the PDF core fonts cannot encode.
@@ -65,13 +75,14 @@ export function sanitizeForPdf(text: string): string {
 
 export class ExportService {
   private jsPdfCtor: typeof JsPdfType | null = null;
+  /** The design recipe being laid out; set per document. */
+  private theme: PdfTheme = getDesignPdfTheme(null);
 
   /**
    * Build the resume PDF and trigger a download.
    *
-   * `designId` is the design currently selected in the UI (see
-   * `design-templates.ts`). The PDF is generated with real text, so the
-   * theme is applied through its colour tokens rather than CSS.
+   * `designId` is the design currently selected in the UI; its visual
+   * recipe is what the PDF is drawn in.
    */
   public async exportToPdf(data: ResumeData, fileName?: string, designId?: string): Promise<void> {
     const doc = await this.createDocument(data, designId);
@@ -87,7 +98,7 @@ export class ExportService {
    */
   public async createDocument(data: ResumeData, designId?: string): Promise<JsPdfType> {
     const JsPdf = await this.loadJsPdf();
-    const tokens = getDesignPdfTokens(designId);
+    this.theme = getDesignPdfTheme(designId);
 
     const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     doc.setFont('helvetica', 'normal');
@@ -101,12 +112,14 @@ export class ExportService {
       creator: 'github-link2pdf'
     });
 
+    this.paintPage(doc);
+
     let cursorY = MARGIN_TOP;
-    cursorY = this.renderHeader(doc, data, cursorY, tokens);
-    cursorY = this.renderEntities(doc, 'EXPERIENCE', data.experience, cursorY, tokens);
-    cursorY = this.renderEntities(doc, 'PROJECTS', data.projects, cursorY, tokens);
-    cursorY = this.renderEntities(doc, 'EDUCATION', data.education, cursorY, tokens);
-    this.renderSkills(doc, data.skills, cursorY, tokens);
+    cursorY = this.renderHeader(doc, data, cursorY);
+    cursorY = this.renderEntities(doc, 'EXPERIENCE', data.experience, cursorY);
+    cursorY = this.renderEntities(doc, 'PROJECTS', data.projects, cursorY);
+    cursorY = this.renderEntities(doc, 'EDUCATION', data.education, cursorY);
+    this.renderSkills(doc, data.skills, cursorY);
 
     return doc;
   }
@@ -142,10 +155,47 @@ export class ExportService {
     return this.jsPdfCtor;
   }
 
+  /**
+   * Paint the design's page decorations: background fill, top bar, side
+   * bars and the full-page frame. Called for every page, since jsPDF pages
+   * start blank.
+   */
+  private paintPage(doc: JsPdfType): void {
+    const t = this.theme;
+
+    if (!isWhite(t.pageBg)) {
+      doc.setFillColor(t.pageBg[0], t.pageBg[1], t.pageBg[2]);
+      doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
+    }
+
+    if (t.topBar) {
+      doc.setFillColor(t.topBar[0], t.topBar[1], t.topBar[2]);
+      doc.rect(0, 0, PAGE_WIDTH, 1.8, 'F');
+    }
+
+    if (t.sideBars) {
+      doc.setFillColor(t.sideBars[0], t.sideBars[1], t.sideBars[2]);
+      doc.rect(0, 0, 1, PAGE_HEIGHT, 'F');
+      doc.rect(PAGE_WIDTH - 1, 0, 1, PAGE_HEIGHT, 'F');
+    }
+
+    if (t.frame) {
+      doc.setDrawColor(t.frame[0], t.frame[1], t.frame[2]);
+      doc.setLineWidth(0.4);
+      const inset = 5;
+      doc.rect(inset, inset, PAGE_WIDTH - inset * 2, PAGE_HEIGHT - inset * 2);
+      if (t.frameDouble) {
+        const inner = inset + 1;
+        doc.rect(inner, inner, PAGE_WIDTH - inner * 2, PAGE_HEIGHT - inner * 2);
+      }
+    }
+  }
+
   /** Start a new page when the next block would overflow the bottom margin. */
   private ensureSpace(doc: JsPdfType, cursorY: number, needed: number): number {
     if (cursorY + needed > PAGE_HEIGHT - MARGIN_BOTTOM) {
       doc.addPage();
+      this.paintPage(doc);
       return MARGIN_TOP;
     }
     return cursorY;
@@ -160,14 +210,15 @@ export class ExportService {
     cursorY: number,
     options: {
       size: number;
-      style?: 'normal' | 'bold';
+      style?: 'normal' | 'bold' | 'italic' | 'bolditalic';
+      font?: PdfFont;
       indent?: number;
       align?: 'left' | 'center';
       color?: Rgb;
     }
   ): number {
-    const { size, style = 'normal', indent = 0, align = 'left', color = BODY_TEXT } = options;
-    doc.setFont('helvetica', style);
+    const { size, style = 'normal', font = 'sans', indent = 0, align = 'left', color = [0, 0, 0] } = options;
+    doc.setFont(JSPDF_FONTS[font], style);
     doc.setFontSize(size);
     doc.setTextColor(color[0], color[1], color[2]);
 
@@ -185,104 +236,306 @@ export class ExportService {
     return y;
   }
 
-  private renderHeader(doc: JsPdfType, data: ResumeData, cursorY: number, tokens: PdfDesignTokens): number {
-    let y = cursorY;
+  /** Draw a horizontal rule; `double` draws a second, close line beneath. */
+  private drawRule(
+    doc: JsPdfType,
+    y: number,
+    color: Rgb,
+    options: { double?: boolean; width?: number; centered?: boolean; thickness?: number } = {}
+  ): void {
+    const { double = false, width = 0, centered = false, thickness = 0.5 } = options;
+    doc.setDrawColor(color[0], color[1], color[2]);
+    doc.setLineWidth(thickness);
+
+    if (centered && width > 0) {
+      const half = width / 2;
+      doc.line(PAGE_WIDTH / 2 - half, y, PAGE_WIDTH / 2 + half, y);
+    } else {
+      doc.line(MARGIN_X, y, PAGE_WIDTH - MARGIN_X, y);
+    }
+    if (double) {
+      doc.line(MARGIN_X, y + 0.9, PAGE_WIDTH - MARGIN_X, y + 0.9);
+    }
+  }
+
+  /**
+   * Render the header block: name, job title and contact line, on top of
+   * the design's header decorations (background block, name chip, rules).
+   */
+  private renderHeader(doc: JsPdfType, data: ResumeData, cursorY: number): number {
+    const t = this.theme;
     const { personal } = data;
+    const nameFont = JSPDF_FONTS[t.nameFont];
+    const nameStyle = t.nameItalic ? 'bolditalic' : 'bold';
 
-    if (personal.name) {
-      y = this.writeText(doc, personal.name, y, { size: FONT_NAME, style: 'bold', align: 'center', color: tokens.name });
-    }
-    if (personal.title) {
-      y = this.writeText(doc, personal.title, y, { size: FONT_TITLE, align: 'center', color: tokens.muted });
-    }
+    // Pre-measure the header text so background boxes can be sized before
+    // anything is drawn (jsPDF has no "draw behind" mode).
+    const nameRaw = personal.name
+      ? sanitizeForPdf(t.nameUppercase ? personal.name.toUpperCase() : personal.name)
+      : '';
+    doc.setFont(nameFont, nameStyle);
+    doc.setFontSize(FONT_NAME);
+    const nameLines = nameRaw ? (doc.splitTextToSize(nameRaw, CONTENT_WIDTH - 4) as string[]) : [];
+    const nameH = nameLines.length * LINE_HEIGHT;
+    const nameW = nameLines.reduce((max, line) => Math.max(max, doc.getTextWidth(line)), 0);
 
-    // Keep each contact detail as plain text; ATS parsers look for these.
     const contacts = [personal.email, personal.phone, personal.location, personal.github, personal.linkedin]
       .map(value => value?.trim())
       .filter((value): value is string => Boolean(value));
 
-    if (contacts.length) {
-      y = this.writeText(doc, contacts.join('  |  '), y, { size: FONT_CONTACT, align: 'center', color: tokens.muted });
+    const titleRaw = personal.title ? sanitizeForPdf(personal.title) : '';
+    doc.setFont(JSPDF_FONTS[t.titleFont], 'normal');
+    doc.setFontSize(FONT_TITLE);
+    const titleLines = titleRaw ? (doc.splitTextToSize(titleRaw, CONTENT_WIDTH - 4) as string[]) : [];
+    const titleH = titleLines.length * LINE_HEIGHT;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(FONT_CONTACT);
+    const contactLines = contacts.length
+      ? (doc.splitTextToSize(contacts.join('  |  '), CONTENT_WIDTH - 4) as string[])
+      : [];
+    const contactH = contactLines.length * LINE_HEIGHT;
+
+    const nameRuleH = t.nameRule ? 2.4 : 0;
+    const contentTop = cursorY + (t.headerBg ? CHIP_PAD_V : 0);
+
+    // Header background block (Business): one rounded block behind everything.
+    const headerBgH = t.headerBg
+      ? nameH + titleH + contactH + nameRuleH + CHIP_PAD_V * 2 + 1
+      : 0;
+    if (t.headerBg) {
+      doc.setFillColor(t.headerBg[0], t.headerBg[1], t.headerBg[2]);
+      doc.roundedRect(MARGIN_X, cursorY, CONTENT_WIDTH, headerBgH, 2, 2, 'F');
     }
 
-    return y + SECTION_GAP * 0.6;
+    // Name chip (Bold, Playful): a centred pill behind the name only. Its
+    // bottom edge is remembered so the job title does not overlap it.
+    let nameChipBottom = 0;
+    if (t.nameBox && nameLines.length) {
+      const chipW = nameW + CHIP_PAD_H * 2;
+      const chipH = nameH + CHIP_PAD_V * 2;
+      const chipX = (PAGE_WIDTH - chipW) / 2;
+      doc.setFillColor(t.nameBox.fill[0], t.nameBox.fill[1], t.nameBox.fill[2]);
+      doc.roundedRect(chipX, contentTop - CHIP_PAD_V, chipW, chipH, t.nameBox.rounded, t.nameBox.rounded, 'F');
+      nameChipBottom = contentTop + nameH + CHIP_PAD_V;
+    }
+
+    let y = contentTop;
+
+    // Keep each contact detail as plain text; ATS parsers look for these.
+    for (const line of nameLines) {
+      y = this.ensureSpace(doc, y, LINE_HEIGHT);
+      doc.setFont(nameFont, nameStyle);
+      doc.setFontSize(FONT_NAME);
+      doc.setTextColor(t.name[0], t.name[1], t.name[2]);
+      doc.text(line, PAGE_WIDTH / 2, y, { align: 'center', baseline: 'top' });
+      y += LINE_HEIGHT;
+    }
+    // The next line must clear the name chip's bottom padding.
+    y = Math.max(y, nameChipBottom);
+
+    if (t.nameRule) {
+      y += 0.5;
+      this.drawRule(doc, y, t.nameRule, { thickness: 0.6 });
+      y += 1.2;
+    }
+
+    for (const line of titleLines) {
+      y = this.ensureSpace(doc, y, LINE_HEIGHT);
+      doc.setFont(JSPDF_FONTS[t.titleFont], 'normal');
+      doc.setFontSize(FONT_TITLE);
+      doc.setTextColor(t.title[0], t.title[1], t.title[2]);
+      doc.text(line, PAGE_WIDTH / 2, y, { align: 'center', baseline: 'top' });
+      y += LINE_HEIGHT;
+    }
+
+    for (const line of contactLines) {
+      y = this.ensureSpace(doc, y, LINE_HEIGHT);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(FONT_CONTACT);
+      doc.setTextColor(t.contacts[0], t.contacts[1], t.contacts[2]);
+      doc.text(line, PAGE_WIDTH / 2, y, { align: 'center', baseline: 'top' });
+      y += LINE_HEIGHT;
+    }
+
+    if (t.headerRule && !t.headerBg) {
+      this.drawRule(doc, y + 1.2, t.headerRule, { double: t.headerRuleDouble });
+      y += 2.6;
+    }
+
+    // The first section must start below the header block, not below the
+    // last text line (the block keeps its own bottom padding).
+    const headerBottom = t.headerBg ? cursorY + headerBgH : y;
+    return headerBottom + SECTION_GAP * 0.6;
   }
 
-  /** Draw a section heading with an underline rule. */
-  private renderSectionTitle(doc: JsPdfType, title: string, cursorY: number, tokens: PdfDesignTokens): number {
+  /**
+   * Draw a section heading with the design's decorations: background box,
+   * left accent bar, underline rule, centred alignment and/or uppercase.
+   */
+  private renderSectionTitle(doc: JsPdfType, title: string, cursorY: number): number {
+    const t = this.theme;
     // Keep the heading with at least the first line of its content.
-    let y = this.ensureSpace(doc, cursorY, LINE_HEIGHT * 3);
-    y = this.writeText(doc, title, y, { size: FONT_SECTION, style: 'bold', color: tokens.section });
+    let y = this.ensureSpace(doc, cursorY, LINE_HEIGHT * 3 + 4);
 
-    doc.setDrawColor(tokens.rule[0], tokens.rule[1], tokens.rule[2]);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN_X, y - 0.6, PAGE_WIDTH - MARGIN_X, y - 0.6);
+    const text = sanitizeForPdf(t.sectionUppercase ? title.toUpperCase() : title);
+    const font = JSPDF_FONTS[t.sectionFont];
+    const style = t.sectionItalic ? 'bolditalic' : 'bold';
+    doc.setFont(font, style);
+    doc.setFontSize(FONT_SECTION);
 
-    return y + 2;
+    const boxH = LINE_HEIGHT + BOX_PAD_V * 2;
+    const boxY = y - BOX_PAD_V;
+
+    if (t.sectionBox) {
+      const full = t.sectionBox.full;
+      const textW = doc.getTextWidth(text);
+      const boxW = full ? CONTENT_WIDTH : textW + BOX_PAD_H * 2;
+      const radius = Math.min(t.sectionBox.rounded, boxH / 2);
+
+      if (t.sectionBox.fill) {
+        doc.setFillColor(t.sectionBox.fill[0], t.sectionBox.fill[1], t.sectionBox.fill[2]);
+        if (radius > 0) doc.roundedRect(MARGIN_X, boxY, boxW, boxH, radius, radius, 'F');
+        else doc.rect(MARGIN_X, boxY, boxW, boxH, 'F');
+      }
+      if (t.sectionBox.outline) {
+        doc.setDrawColor(t.sectionBox.outline[0], t.sectionBox.outline[1], t.sectionBox.outline[2]);
+        doc.setLineWidth(0.3);
+        if (radius > 0) doc.roundedRect(MARGIN_X, boxY, boxW, boxH, radius, radius, 'S');
+        else doc.rect(MARGIN_X, boxY, boxW, boxH);
+      }
+      if (t.sectionRuleTop) {
+        this.drawRule(doc, boxY - 0.7, t.sectionRule ?? t.sectionBox.outline ?? [0, 0, 0], { thickness: 0.5 });
+      }
+    }
+
+    doc.setTextColor(t.section[0], t.section[1], t.section[2]);
+
+    if (t.sectionBox) {
+      // Text sits inside the box, clear of the accent bar when there is one
+      // (CSS: padding is measured after the left border).
+      const indent = t.sectionBar ? 1.2 : 0;
+      doc.text(text, MARGIN_X + BOX_PAD_H + indent, y, { baseline: 'top' });
+      if (t.sectionBar) {
+        doc.setFillColor(t.sectionBar[0], t.sectionBar[1], t.sectionBar[2]);
+        doc.rect(MARGIN_X, boxY, 1.2, boxH, 'F');
+      }
+    } else if (t.sectionAlign === 'center') {
+      doc.text(text, PAGE_WIDTH / 2, y, { align: 'center', baseline: 'top' });
+    } else {
+      if (t.sectionBar) {
+        doc.setFillColor(t.sectionBar[0], t.sectionBar[1], t.sectionBar[2]);
+        doc.rect(MARGIN_X, y - 0.6, 1.2, LINE_HEIGHT + 1.2, 'F');
+        doc.text(text, MARGIN_X + 2.6, y, { baseline: 'top' });
+      } else {
+        doc.text(text, MARGIN_X, y, { baseline: 'top' });
+      }
+    }
+
+    let bottom = t.sectionBox ? boxY + boxH : y + LINE_HEIGHT;
+
+    if (t.sectionRule && !t.sectionRuleTop) {
+      this.drawRule(doc, bottom + 0.7, t.sectionRule, {
+        width: t.sectionRuleWidth,
+        centered: t.sectionAlign === 'center' || t.sectionRuleWidth > 0
+      });
+      bottom += 1.6;
+    } else if (t.sectionRule && t.sectionRuleTop) {
+      // Academic: rules on both sides of the box.
+      this.drawRule(doc, bottom + 0.7, t.sectionRule, { thickness: 0.5 });
+      bottom += 1.6;
+    }
+
+    return bottom + 2.2;
   }
 
   private renderEntities(
     doc: JsPdfType,
     title: string,
     entities: TimeBoundedEntity[] | undefined,
-    cursorY: number,
-    tokens: PdfDesignTokens
+    cursorY: number
   ): number {
     if (!entities?.length) return cursorY;
 
-    let y = this.renderSectionTitle(doc, title, cursorY, tokens);
+    const t = this.theme;
+    const font = t.bodyFont;
+    let y = this.renderSectionTitle(doc, title, cursorY);
 
     entities.forEach(entity => {
+      const blockTop = y;
+
       // Sanitised up front: the heading and period are drawn directly below
       // (not through writeText) so they need the same treatment.
-      const heading = sanitizeForPdf(
-        [entity.role, entity.institution].filter(Boolean).join(' - ')
-      );
+      const role = sanitizeForPdf(entity.role ?? '');
+      const institution = sanitizeForPdf(entity.institution ?? '');
+      const period = sanitizeForPdf(entity.period ?? '');
 
-      if (heading) {
+      if (role || institution) {
         y = this.ensureSpace(doc, y, LINE_HEIGHT * 2);
-        const period = sanitizeForPdf(entity.period ?? '');
 
-        if (period) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(FONT_BODY);
-          const periodWidth = doc.getTextWidth(period);
+        doc.setFont(font, 'normal');
+        doc.setFontSize(FONT_BODY);
+        const periodWidth = period ? doc.getTextWidth(period) : 0;
 
-          // Draw the heading first so text extraction yields a natural
-          // reading order ("Role - Company" then the dates) rather than
-          // gluing the period onto the front of the line.
-          doc.setFont('helvetica', 'bold');
+        // Draw the heading first so text extraction yields a natural
+        // reading order ("Role - Company" then the dates) rather than
+        // gluing the period onto the front of the line.
+        doc.setFont(font, 'bold');
+        doc.setFontSize(FONT_BODY);
+        doc.setTextColor(t.heading[0], t.heading[1], t.heading[2]);
+        // Reserve room so a long heading cannot run into the period.
+        const roleLines = role
+          ? (doc.splitTextToSize(role, CONTENT_WIDTH - periodWidth - 4) as string[])
+          : [];
+
+        let headingTop = y;
+        let headingY = y;
+        roleLines.forEach((line, index) => {
+          if (index > 0) headingY = this.ensureSpace(doc, headingY, LINE_HEIGHT);
+          doc.text(line, MARGIN_X, headingY, { baseline: 'top' });
+          headingY += LINE_HEIGHT;
+        });
+
+        if (institution) {
+          doc.setFont(font, 'normal');
           doc.setFontSize(FONT_BODY);
-          // Reserve room so a long heading cannot run into the period.
-          const headingLines = doc.splitTextToSize(
-            heading,
+          doc.setTextColor(t.heading[0], t.heading[1], t.heading[2]);
+          const orgLines = doc.splitTextToSize(
+            roleLines.length ? `  ${institution}` : institution,
             CONTENT_WIDTH - periodWidth - 4
           ) as string[];
-
-          const headingTop = y;
-          headingLines.forEach((line, index) => {
-            if (index > 0) y = this.ensureSpace(doc, y, LINE_HEIGHT);
-            doc.text(line, MARGIN_X, y, { baseline: 'top' });
-            y += LINE_HEIGHT;
+          orgLines.forEach((line, index) => {
+            if (index > 0) headingY = this.ensureSpace(doc, headingY, LINE_HEIGHT);
+            doc.text(line, MARGIN_X, headingY, { baseline: 'top' });
+            headingY += LINE_HEIGHT;
           });
-
-          // Right-align the period on the first heading line.
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(FONT_BODY);
-          doc.setTextColor(tokens.muted[0], tokens.muted[1], tokens.muted[2]);
-          doc.text(period, PAGE_WIDTH - MARGIN_X - periodWidth, headingTop, { baseline: 'top' });
-        } else {
-          y = this.writeText(doc, heading, y, { size: FONT_BODY, style: 'bold' });
         }
-      } else if (entity.period) {
-        y = this.writeText(doc, entity.period, y, { size: FONT_BODY, color: tokens.muted });
+
+        // Right-align the period on the first heading line.
+        if (period) {
+          doc.setFont(font, 'normal');
+          doc.setFontSize(FONT_BODY);
+          doc.setTextColor(t.date[0], t.date[1], t.date[2]);
+          doc.text(period, PAGE_WIDTH - MARGIN_X - periodWidth, headingTop, { baseline: 'top' });
+        }
+
+        y = headingY;
+      } else if (period) {
+        y = this.writeText(doc, period, y, { size: FONT_BODY, font, color: t.date });
       }
 
       entity.description?.filter(Boolean).forEach(line => {
         // A hyphen bullet keeps the text extractable; glyph bullets often
         // decode as garbage in the standard PDF fonts.
-        y = this.writeText(doc, `- ${line}`, y, { size: FONT_BODY, indent: BULLET_INDENT });
+        y = this.writeText(doc, `- ${line}`, y, { size: FONT_BODY, font, indent: BULLET_INDENT, color: t.body });
       });
+
+      // Entity accent bar (Swiss, Impact): drawn after the block so it
+      // spans exactly the item's height.
+      if (t.entityBar) {
+        doc.setFillColor(t.entityBar[0], t.entityBar[1], t.entityBar[2]);
+        doc.rect(MARGIN_X - 1.8, blockTop - 0.5, 0.9, y - blockTop - ENTITY_GAP + 0.5, 'F');
+      }
 
       y += ENTITY_GAP;
     });
@@ -293,25 +546,26 @@ export class ExportService {
   private renderSkills(
     doc: JsPdfType,
     skills: (string | SkillCategory)[] | undefined,
-    cursorY: number,
-    tokens: PdfDesignTokens
+    cursorY: number
   ): number {
     if (!skills?.length) return cursorY;
 
-    let y = this.renderSectionTitle(doc, 'SKILLS', cursorY, tokens);
+    const t = this.theme;
+    const font = t.bodyFont;
+    let y = this.renderSectionTitle(doc, 'SKILLS', cursorY);
 
     const plain = skills.filter((skill): skill is string => typeof skill === 'string');
     const grouped = skills.filter((skill): skill is SkillCategory => typeof skill !== 'string');
 
     if (plain.length) {
-      y = this.writeText(doc, plain.join(', '), y, { size: FONT_BODY });
+      y = this.writeText(doc, plain.join(', '), y, { size: FONT_BODY, font, color: t.body });
     }
 
     grouped.forEach(group => {
       const items = group.items?.filter(Boolean).join(', ') ?? '';
       const text = group.category ? `${group.category}: ${items}` : items;
       if (text.trim()) {
-        y = this.writeText(doc, text, y, { size: FONT_BODY });
+        y = this.writeText(doc, text, y, { size: FONT_BODY, font, color: t.body });
       }
     });
 

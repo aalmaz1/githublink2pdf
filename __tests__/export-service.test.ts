@@ -2,12 +2,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ExportService, sanitizeForPdf } from '../src/services/ExportService';
 import { ResumeData } from '../src/types';
 import {
+  contrast,
   DESIGNS,
-  DEFAULT_PDF_DESIGN,
-  contrastAgainstWhite,
-  ensureReadable,
-  getDesignPdfTokens
+  ensureReadableOn,
+  getDesign,
+  getDesignPdfTheme,
+  Rgb,
+  WHITE
 } from '../src/designs/design-templates';
+
+const DESIGNS_IDS = DESIGNS.map(design => design.id);
 
 const data: ResumeData = {
   personal: {
@@ -209,88 +213,126 @@ describe('ExportService', () => {
 });
 
 describe('themed PDF export', () => {
-  it('should apply the selected design to the PDF', async () => {
-    // "Swiss" uses a red accent rule (the on-screen theme is black + red).
-    // The token may be darkened for print contrast, so assert against the
-    // resolved value rather than the raw hex.
-    const { rule } = getDesignPdfTokens('swiss');
+  it('should draw the Swiss design: black section bars, white section text, red header rule', async () => {
+    const theme = getDesignPdfTheme('swiss');
     const { doc } = await renderPdf(data, 'swiss');
     const colors = extractRgbColors(doc);
 
-    // The section underline rule must be drawn in the theme's accent colour.
-    expectColorNear(colors, rule);
-    // And the document must still be text a parser can read.
-    expect(extractText(doc)).toContain('Ada Lovelace');
-    expect(extractText(doc)).toContain('EXPERIENCE');
+    // Black section-title background boxes.
+    expectColorNear(colors, theme.sectionBox!.fill!);
+    // White section headings on top of them.
+    expectColorNear(colors, theme.section);
+    // Red rule under the header (Swiss accent).
+    expectColorNear(colors, theme.headerRule!);
+    // And it must still be text a parser can read. Swiss uppercases the
+    // name (its h1 is text-transform: uppercase), so match that casing.
+    const text = extractText(doc);
+    expect(text).toContain('ADA LOVELACE');
+    expect(text).toContain('EXPERIENCE');
   });
 
-  it('should colour the header and section headings with the theme', async () => {
-    // "Modern" names the candidate in indigo (#4f46e5, already print-safe).
-    const { name } = getDesignPdfTokens('modern');
-    const { doc } = await renderPdf(data, 'modern');
+  it('should paint dark pages and neon text for dark themes', async () => {
+    const theme = getDesignPdfTheme('cyber');
+    const { doc } = await renderPdf(data, 'cyber');
     const colors = extractRgbColors(doc);
 
-    expectColorNear(colors, name);
-    expect(name).toEqual([79, 70, 229]);
+    // Dark page background, neon body text — as the preview shows.
+    expectColorNear(colors, theme.pageBg);
+    expectColorNear(colors, theme.body);
+    expect(contrast(theme.body, theme.pageBg)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('should draw the Business header as a filled blue block with white text', async () => {
+    const theme = getDesignPdfTheme('business');
+    const { doc } = await renderPdf(data, 'business');
+    const colors = extractRgbColors(doc);
+
+    expectColorNear(colors, theme.headerBg!);
+    // Name, title and contacts turn white inside the block.
+    expectColorNear(colors, [255, 255, 255]);
+    expect(theme.name).toEqual([255, 255, 255]);
+  });
+
+  it('should render the accent name chip for the Bold design', async () => {
+    const theme = getDesignPdfTheme('bold');
+    const { doc } = await renderPdf(data, 'bold');
+    const colors = extractRgbColors(doc);
+
+    // Red chip behind the name, red section bars.
+    expectColorNear(colors, theme.nameBox!.fill);
+    expectColorNear(colors, theme.sectionBox!.fill!);
+    expect(theme.name).toEqual([255, 255, 255]);
   });
 
   it('should produce different output for different designs', async () => {
-    const plain = extractRgbColors((await renderPdf(data, 'classic')).doc);
+    const classic = extractRgbColors((await renderPdf(data, 'classic')).doc);
     const swiss = extractRgbColors((await renderPdf(data, 'swiss')).doc);
-    const modern = extractRgbColors((await renderPdf(data, 'modern')).doc);
+    const cyber = extractRgbColors((await renderPdf(data, 'cyber')).doc);
 
-    expectColorNear(swiss, getDesignPdfTokens('swiss').rule);
-    expectColorNear(modern, getDesignPdfTokens('modern').name);
-    expect(plain).not.toEqual(swiss);
-    expect(swiss).not.toEqual(modern);
+    expect(classic).not.toEqual(swiss);
+    expect(swiss).not.toEqual(cyber);
   });
 
-  it('should keep the legacy black-on-grey look when no design is given', async () => {
-    const { doc } = await renderPdf(data);
-    const colors = extractRgbColors(doc);
-
-    // The only non-black colour in the document is the historical grey rule.
-    const nonBlack = colors.filter(([r, g, b]) => r > 2 || g > 2 || b > 2);
-    expect(nonBlack.length).toBeGreaterThan(0);
-    for (const [r, g, b] of nonBlack) {
-      expect(Math.abs(r - 140)).toBeLessThanOrEqual(2);
-      expect(Math.abs(g - 140)).toBeLessThanOrEqual(2);
-      expect(Math.abs(b - 140)).toBeLessThanOrEqual(2);
-    }
+  it('should fall back to the Classic recipe for unknown design ids', () => {
+    const classic = getDesignPdfTheme(getDesign('classic')!.id);
+    expect(getDesignPdfTheme('no-such-design')).toEqual(classic);
+    expect(getDesignPdfTheme()).toEqual(classic);
   });
 
-  it('should fall back to the legacy tokens for an unknown design id', () => {
-    expect(getDesignPdfTokens('no-such-design')).toEqual(DEFAULT_PDF_DESIGN);
-    expect(getDesignPdfTokens()).toEqual(DEFAULT_PDF_DESIGN);
-  });
+  it('should keep every text colour legible on the background it is drawn on', () => {
+    for (const design of getDesign('classic') ? DESIGNS_IDS : []) {
+      const t = getDesignPdfTheme(design);
+      const pageBg = t.pageBg;
+      const headerBg = t.headerBg ?? pageBg;
+      const nameBg = t.nameBox ? t.nameBox.fill : headerBg;
+      const sectionBg = t.sectionBox?.fill ?? pageBg;
 
-  it('should keep every design token readable on white paper', () => {
-    for (const design of DESIGNS) {
-      const tokens = getDesignPdfTokens(design.id);
-      for (const [role, color] of Object.entries(tokens)) {
+      const pairs: Array<[string, Rgb, Rgb]> = [
+        ['name', t.name, nameBg],
+        ['title', t.title, headerBg],
+        ['contacts', t.contacts, headerBg],
+        ['section', t.section, sectionBg],
+        ['body', t.body, pageBg],
+        ['heading', t.heading, pageBg],
+        ['date', t.date, pageBg]
+      ];
+
+      for (const [role, color, bg] of pairs) {
+        // Either the resolved contrast meets WCAG AA, or the colour is fully
+        // saturated (nothing further to adjust) — e.g. white on a mid-green
+        // section bar, which the preview itself uses.
+        const saturated = color.every(c => c >= 250) || color.every(c => c <= 5);
         expect(
-          contrastAgainstWhite(color),
-          `${design.id}/${role} rgb(${color.join(',')})`
-        ).toBeGreaterThanOrEqual(4.5);
+          contrast(color, bg) >= 4.5 || saturated,
+          `${design}/${role} rgb(${color.join(',')}) on rgb(${bg.join(',')}) = ${contrast(color, bg).toFixed(2)}`
+        ).toBe(true);
       }
     }
   });
 
-  it('should darken neon accents but preserve their hue', () => {
-    // White (e.g. a white-on-black accent) becomes a dark grey, still >= AA.
-    const darkenedWhite = ensureReadable([255, 255, 255]);
-    expect(darkenedWhite[0]).toBeLessThan(160);
-    expect(contrastAgainstWhite(darkenedWhite)).toBeGreaterThanOrEqual(4.5);
+  it('should darken print-hostile accents on white paper, hue preserved', () => {
+    // Playful amber fails 4.5:1 on white raw; the resolver darkens it.
+    const raw: Rgb = [245, 158, 11];
+    const resolved = ensureReadableOn(raw, WHITE);
+    expect(contrast(resolved, WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(resolved[0]).toBeLessThan(raw[0]); // pulled down, not greyed out
+    expect(resolved[0]).toBeGreaterThan(resolved[2]); // still amber (r > g > b)
+  });
 
-    // Cyber cyan: stays in the cyan family (blue >= green channel ordering
-    // flips, but red stays the lowest and the colour is far from grey).
-    const cyan = ensureReadable([0, 255, 255]);
-    expect(cyan[0]).toBeLessThan(cyan[1]);
-    expect(cyan[0]).toBeLessThan(cyan[2]);
-    expect(contrastAgainstWhite(cyan)).toBeGreaterThanOrEqual(4.5);
+  it('should keep neon accents untouched on their dark backgrounds', () => {
+    const cyber = getDesignPdfTheme('cyber');
+    expect(cyber.name).toEqual([0, 255, 255]); // cyan, unchanged
+    expect(cyber.body).toEqual([0, 255, 255]);
+    const terminal = getDesignPdfTheme('terminal');
+    expect(terminal.name).toEqual([34, 197, 94]); // green, unchanged
+  });
 
-    // A colour that already passes is returned untouched.
-    expect(ensureReadable([26, 54, 93])).toEqual([26, 54, 93]);
+  it('should brighten dim text on dark pages until it is legible', () => {
+    // #475569 (the default job-title grey) is dim on Cyber's #0a0a0a page.
+    const dim: Rgb = [71, 85, 105];
+    const resolved = ensureReadableOn(dim, [10, 10, 10]);
+    expect(contrast(resolved, [10, 10, 10])).toBeGreaterThanOrEqual(4.5);
+    expect(resolved[0]).toBeGreaterThan(dim[0]); // lightened, hue preserved
   });
 });
 
