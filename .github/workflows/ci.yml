@@ -40,8 +40,7 @@ jobs:
 
       # (Опционально) Генерация coverage-отчёта (исправленная команда)
       - name: Generate coverage report
-        run: npm run coverage -- --coverage --coverage.reporters=json-summary,text
-        continue-on-error: true   # временно, пока не настроите coverage
+        run: npm run coverage --
 
       # (Опционально) Загрузка coverage в Codecov
       - name: Upload coverage to Codecov
