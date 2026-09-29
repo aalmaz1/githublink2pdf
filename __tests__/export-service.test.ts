@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ExportService, sanitizeForPdf } from '../src/services/ExportService';
+import { CapturedPreview, PreviewPage, TextWord } from '../src/services/preview-capture';
 import { ResumeData } from '../src/types';
 
 const data: ResumeData = {
@@ -31,23 +32,51 @@ const data: ResumeData = {
   skills: ['Algorithms', { category: 'Tools', items: ['Git'] }]
 };
 
+/** A 1×1 transparent PNG — enough for jsPDF to embed as a page image. */
+const TINY_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+function makeWord(text: string, topPx: number, xPx = 10): TextWord {
+  return {
+    text,
+    xPx,
+    topPx,
+    bottomPx: topPx + 19,
+    heightPx: 19,
+    fontSizePx: 16,
+    bold: false,
+    inHeading: false
+  };
+}
+
 /**
- * Build the PDF document without triggering a browser download.
+ * Build a fake capture: pages already rasterised (a stub canvas is enough —
+ * jsPDF only reads its `toDataURL`), with the words each page shows.
  */
-async function renderPdf(resume: ResumeData = data) {
+function makeCapture(wordsPerPage: TextWord[][]): CapturedPreview {
+  const pages: PreviewPage[] = wordsPerPage.map(words => ({
+    canvas: { toDataURL: () => TINY_PNG } as unknown as HTMLCanvasElement,
+    widthMm: 210,
+    heightMm: 297,
+    words
+  }));
+  return { pages, sheetWidthPx: 794 };
+}
+
+async function renderPdf(pages: TextWord[][], resume: ResumeData = data) {
   const service = new ExportService();
   return {
-    doc: await service.createDocument(resume),
+    doc: await service.createDocument(makeCapture(pages), resume),
     name: service.buildFileName(resume)
   };
 }
 
 /**
- * Extract the text jsPDF placed on the page.
+ * Extract the text jsPDF placed on the pages.
  *
  * The PDF content stream stores drawn strings in parentheses, which is
- * exactly what an ATS parser reads — if this comes back empty, the export is
- * an image and unreadable to applicant tracking systems.
+ * exactly what an ATS parser reads — if this comes back empty, the export
+ * has no machine-readable text layer.
  */
 function extractText(doc: any): string {
   const raw: string = doc.output('datauristring');
@@ -65,51 +94,60 @@ beforeEach(() => {
 
 describe('ExportService', () => {
   it('should produce a real PDF document', async () => {
-    const { doc } = await renderPdf();
+    const { doc } = await renderPdf([[makeWord('Ada Lovelace', 20)]]);
     expect(doc.output('datauristring')).toContain('data:application/pdf');
   });
 
-  it('should embed selectable text, not a rasterised image', async () => {
-    const text = extractText((await renderPdf()).doc);
+  it('should embed the visible words as a machine-readable text layer', async () => {
+    const { doc } = await renderPdf([
+      [
+        makeWord('Ada', 20),
+        makeWord('Lovelace', 20, 60),
+        makeWord('Software', 45),
+        makeWord('Engineer', 45, 80)
+      ]
+    ]);
+    const text = extractText(doc);
 
-    // An html2canvas-based export would yield no text at all here.
-    expect(text.length).toBeGreaterThan(0);
-    expect(text).toContain('Ada Lovelace');
-    expect(text).toContain('Software Engineer');
+    expect(text).toContain('Ada');
+    expect(text).toContain('Lovelace');
+    expect(text).toContain('Software');
+    expect(text).toContain('Engineer');
+    expect(text).not.toContain('\u0000');
   });
 
-  it('should include contact details an ATS looks for', async () => {
-    const text = extractText((await renderPdf()).doc);
+  it('should draw the text layer invisibly on top of the page raster', async () => {
+    const { doc } = await renderPdf([[makeWord('Ada Lovelace', 20)]]);
+    const raw: string = doc.output('datauristring');
+    const binary = Buffer.from(raw.slice(raw.indexOf(',') + 1), 'base64').toString('binary');
 
-    expect(text).toContain('ada@example.com');
-    expect(text).toContain('+15550100');
-    expect(text).toContain('github.com/ada');
-    expect(text).toContain('linkedin.com/in/ada');
+    // PDF text rendering mode 3 ("invisible") is what keeps the page a
+    // visual copy of the preview while the text stays extractable.
+    expect(binary).toContain('3 Tr');
+    // And the page itself is an image.
+    expect(binary).toContain('/Image');
   });
 
-  it('should include every section with its entries', async () => {
-    const text = extractText((await renderPdf()).doc);
+  it('should produce one PDF page per captured page', async () => {
+    const { doc } = await renderPdf([
+      [makeWord('first page', 20)],
+      [makeWord('second page', 20)],
+      [makeWord('third page', 20)]
+    ]);
 
-    expect(text).toContain('EXPERIENCE');
-    expect(text).toContain('Lead Engineer');
-    expect(text).toContain('Analytical Engines');
-    expect(text).toContain('2020 - Present');
-    expect(text).toContain('Reduced latency by 40 percent.');
-
-    expect(text).toContain('EDUCATION');
-    expect(text).toContain('Royal Institution');
-
-    expect(text).toContain('SKILLS');
-    expect(text).toContain('Algorithms');
-    expect(text).toContain('Tools: Git');
+    expect(doc.getNumberOfPages()).toBe(3);
+    const text = extractText(doc);
+    expect(text).toContain('first page');
+    expect(text).toContain('second page');
+    expect(text).toContain('third page');
   });
 
   it('should name the file after the candidate', async () => {
-    expect((await renderPdf()).name).toBe('ada-lovelace-resume.pdf');
+    expect((await renderPdf([])).name).toBe('ada-lovelace-resume.pdf');
   });
 
   it('should set PDF metadata', async () => {
-    const { doc } = await renderPdf();
+    const { doc } = await renderPdf([[makeWord('Ada Lovelace', 20)]]);
     const raw: string = doc.output('datauristring');
     const binary = Buffer.from(raw.slice(raw.indexOf(',') + 1), 'base64').toString('binary');
 
@@ -118,47 +156,23 @@ describe('ExportService', () => {
     expect(binary).toContain('Ada Lovelace');
   });
 
-  it('should paginate long resumes instead of clipping them', async () => {
-    const long: ResumeData = {
-      ...data,
-      experience: Array.from({ length: 12 }, (_, i) => ({
-        institution: `Company ${i}`,
-        role: `Engineer ${i}`,
-        period: `${2000 + i} - ${2001 + i}`,
-        description: [
-          'Delivered a significant improvement to the platform and its tooling.',
-          'Worked across teams to ship features on a predictable schedule.'
-        ]
-      }))
-    };
+  it('should keep unencodable characters out of the text layer', async () => {
+    const pages = [
+      [
+        makeWord('😎', 20),
+        makeWord(':zap:', 20, 60),
+        makeWord('Awesome', 45),
+        makeWord('Rocket', 45, 80)
+      ]
+    ];
+    const { doc } = await renderPdf(pages);
+    const text = extractText(doc);
 
-    const { doc } = await renderPdf(long);
-
-    expect(doc.getNumberOfPages()).toBeGreaterThan(1);
-    expect(extractText(doc)).toContain('Engineer 11');
-  });
-
-  it('should handle a resume with empty optional sections', async () => {
-    const sparse: ResumeData = {
-      personal: {
-        name: 'Grace Hopper',
-        title: '',
-        email: 'grace@example.com',
-        phone: '',
-        location: '',
-        github: '',
-        linkedin: ''
-      },
-      experience: [],
-      education: [],
-      skills: []
-    };
-
-    const text = extractText((await renderPdf(sparse)).doc);
-
-    expect(text).toContain('Grace Hopper');
-    expect(text).not.toContain('EXPERIENCE');
-    expect(text).not.toContain('SKILLS');
+    expect(text).toContain('Awesome');
+    expect(text).toContain('Rocket');
+    // NUL bytes are the signature of the broken UTF-16 fallback.
+    expect(text).not.toContain('\u0000');
+    expect(text).not.toContain('😎');
   });
 });
 
@@ -183,32 +197,17 @@ describe('sanitizeForPdf', () => {
     expect(sanitizeForPdf('Café résumé naïve')).toBe('Café résumé naïve');
   });
 
+  it('should keep Cyrillic for the embedded Unicode font', () => {
+    // The invisible text layer embeds Inter, which covers Cyrillic — a
+    // Russian resume must stay machine-readable for ATS parsers.
+    expect(sanitizeForPdf('Резюме разработчика')).toBe('Резюме разработчика');
+    expect(sanitizeForPdf('Опыт: 2020 — 2026, ООО «Ромашка»')).toBe(
+      'Опыт: 2020 — 2026, ООО «Ромашка»'
+    );
+  });
+
   it('should leave ordinary text untouched', () => {
     const text = 'Built a REST API using Node.js and PostgreSQL.';
     expect(sanitizeForPdf(text)).toBe(text);
-  });
-});
-
-describe('emoji in exported PDF', () => {
-  it('should not write unencodable characters into the document', async () => {
-    const resume: ResumeData = {
-      ...data,
-      projects: [
-        {
-          institution: 'Personal / Open Source',
-          role: '🚀 Rocket Tools',
-          period: '2020 — 2024',
-          description: ['😎 Awesome lists about interesting topics']
-        }
-      ]
-    };
-
-    const { doc } = await renderPdf(resume);
-    const text = extractText(doc);
-
-    expect(text).toContain('Rocket Tools');
-    expect(text).toContain('Awesome lists about interesting topics');
-    // NUL bytes are the signature of the broken UTF-16 fallback.
-    expect(text).not.toContain('\u0000');
   });
 });

@@ -22,6 +22,7 @@ const ru: TranslationDict = {
     invalidUsername: 'Введите корректное имя пользователя GitHub',
     exportSuccess: 'PDF успешно экспортирован!',
     exportError: 'Ошибка при экспорте PDF',
+    exportPreparing: 'Готовим PDF — рендерим резюме точно так, как вы его видите...',
     jsonSaved: 'JSON файл загружен',
     profileLoaded: 'Профиль успешно загружен!',
     fillInExperience: 'GitHub не знает о вашей работе и учёбе — впишите их в разделы «Опыт» и «Образование».',

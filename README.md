@@ -10,7 +10,7 @@ A client-side resume builder that turns a GitHub profile into an editable, ATS-a
 - **30 resume designs** — professional, creative, minimal, tech, business, elegant, and bold templates, plus a random-design button
 - **Inline editing** — click any text on the preview to change it (`contenteditable`)
 - **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education (plus an overall summary verdict), with a side panel of concrete recommendations. Each criterion shows its score and its labelled **weight** (share of the total), so `90% · вес 26%` is never confusing
-- **Export** — A4 PDF via jsPDF with real, selectable, machine-readable text (ATS parsers can read it), or download the resume as JSON
+- **Export** — a WYSIWYG A4 PDF that is a pixel-exact copy of the preview: the design/theme you picked, the fonts, the alignment, your edits. Each page also carries an invisible text layer (PDF text rendering mode 3), so the file stays selectable, searchable and machine-readable for ATS parsers. Or download the resume as JSON
 - **UI** — interface chrome in English, Russian, and Korean; light/dark theme, text alignment; preferences stored in `localStorage`
 - **Demo profile** — a generated sample resume loads immediately so you can try designs without an import
 
@@ -64,7 +64,7 @@ Open the URL Vite prints (usually `http://localhost:5173`). Do not open `index.h
 3. Pick a design, alignment, and interface language. Toggle light/dark UI with the floating button.
 4. Edit any field on the page.
 5. Click **ATS Check** to see a score and recommendations.
-6. **Export PDF** or **Save JSON**.
+6. **Export PDF** — the downloaded file reproduces the preview 1:1 (chosen design theme, fonts, colors, alignment, your edits), with an invisible text layer for ATS — or **Save JSON**.
 
 GitHub unauthenticated API limits apply. If import fails with a rate-limit message, wait and retry.
 
@@ -82,7 +82,8 @@ src/
   styles.css                   # UI chrome + 30 design themes
   designs/design-templates.ts  # The 30 design definitions + helpers
   services/ATSService.ts       # ATS scoring
-  services/ExportService.ts    # A4 PDF export
+  services/ExportService.ts    # A4 PDF assembly (page rasters + invisible text layer)
+  services/preview-capture.ts  # WYSIWYG capture of the live preview (staging, word measurement, pagination)
   config/ats-keywords.ts       # Keyword banks used by the ATS checker
   types.ts, types/ats.ts       # Resume and ATS data types
   utils/github-cache.ts        # localStorage cache for GitHub responses

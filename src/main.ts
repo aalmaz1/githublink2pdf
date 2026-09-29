@@ -469,18 +469,31 @@ document.addEventListener('DOMContentLoaded', () => {
     showNotification(tr(currentLang, 'jsonSaved'), 'success');
   });
 
-  // PDF Export with notification
+  // PDF Export with notification.
+  // The export renders the live preview DOM (theme, fonts, edits — exactly
+  // what the user sees), so the container element is passed through and the
+  // data is only used for the file name and PDF metadata.
   const exportPdfBtn = document.getElementById('export-pdf');
   exportPdfBtn?.addEventListener('click', async () => {
+    const container = document.getElementById('resume-container');
     const data = getCurrentResumeData();
-    if (!data) return;
+    if (!container || !data) return;
+
+    exportPdfBtn.setAttribute('disabled', 'true');
+    const overlayText = document.getElementById('loading-overlay-text');
+    if (overlayText) overlayText.textContent = tr(currentLang, 'exportPreparing');
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+
     try {
-      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`);
+      await exportService.exportToPdf(container, data, `${slugify(data.personal.name)}-resume.pdf`);
       showNotification(tr(currentLang, 'exportSuccess'), 'success');
     } catch (error) {
       console.error('PDF export error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       showNotification(`${tr(currentLang, 'exportError')}: ${errorMessage}`, 'error');
+    } finally {
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
+      exportPdfBtn.removeAttribute('disabled');
     }
   });
 

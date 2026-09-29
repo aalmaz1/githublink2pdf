@@ -224,7 +224,7 @@ body.theme-minimal {
   --border-color: #e2e8f0;
 }
 
-body.theme-minimal #resume-container {
+body.theme-minimal .resume-root {
   border: 1px solid #0f172a;
   border-radius: 0;
 }
@@ -272,7 +272,7 @@ body.theme-corporate {
   --muted-color: #718096;
   --border-color: #e2e8f0;
 }
-body.theme-corporate #resume-container {
+body.theme-corporate .resume-root {
   border-top: 6px solid var(--accent-color);
 }
 body.theme-corporate h1 {
@@ -358,7 +358,7 @@ body.theme-creative .section-block h3 {
   border-left: 4px solid var(--accent-color);
   padding-left: 12px;
 }
-body.theme-creative #resume-container {
+body.theme-creative .resume-root {
   border-left: 4px solid var(--accent-color);
   border-right: 4px solid var(--accent-color);
 }
@@ -393,7 +393,7 @@ body.theme-designer {
   --muted-color: #9ca3af;
   --border-color: #f3f4f6;
 }
-body.theme-designer #resume-container {
+body.theme-designer .resume-root {
   border-radius: 16px;
   overflow: hidden;
 }
@@ -636,7 +636,7 @@ body.theme-cyber {
   --muted-color: #666666;
   --border-color: #333333;
 }
-body.theme-cyber #resume-container {
+body.theme-cyber .resume-root {
   background: #0a0a0a;
   color: #00ffff;
   border: 2px solid #00ffff;
@@ -668,7 +668,7 @@ body.theme-terminal {
   --muted-color: #86efac;
   --border-color: #292524;
 }
-body.theme-terminal #resume-container {
+body.theme-terminal .resume-root {
   background: #0c0a09;
   color: #22c55e;
   border: 1px solid #292524;
@@ -881,7 +881,7 @@ body.theme-luxury .section-block h3 {
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
-body.theme-luxury #resume-container {
+body.theme-luxury .resume-root {
   border: 3px double var(--accent-color);
 }
 
@@ -1243,7 +1243,7 @@ input[type="text"]:focus {
 
 /* Resume Preview Container - Fixed A4 Layout
    Uses Inter font for optimal screen and print readability */
-#resume-container {
+.resume-root {
   /* Фиксированные размеры A4 */
   width: 210mm;
   min-height: 297mm;
@@ -1451,7 +1451,7 @@ li {
     display: none !important;
   }
 
-  #resume-container {
+  .resume-root {
     margin: 0 !important;
     padding: 15mm !important; /* Same as screen */
     border: none !important;
@@ -1768,7 +1768,7 @@ li {
     min-width: auto;
   }
 
-  #resume-container {
+  .resume-root {
     width: 100%;
     padding: 15mm;
     margin: 15px auto;
@@ -1805,7 +1805,7 @@ li {
     margin-bottom: 5px;
   }
 
-  #resume-container {
+  .resume-root {
     padding: 10mm;
     margin: 10px auto;
     min-height: auto;
@@ -1877,7 +1877,7 @@ li {
     width: 100%;
   }
 
-  #resume-container {
+  .resume-root {
     padding: 8mm;
     margin: 5px auto;
   }
@@ -1916,7 +1916,7 @@ li {
     overflow-y: auto;
   }
 
-  #resume-container {
+  .resume-root {
     transform: scale(0.9);
     transform-origin: top center;
   }
@@ -1941,7 +1941,7 @@ li {
   }
 }
 
-#resume-container {
+.resume-root {
   flex: 0 0 75%;
   max-width: 75%;
   background: var(--resume-bg);
@@ -2343,7 +2343,7 @@ li {
     flex-direction: column;
   }
   
-  #resume-container {
+  .resume-root {
     flex: 1;
     max-width: 100%;
   }
@@ -2357,7 +2357,7 @@ li {
 
 /* Additional mobile fixes for screens below 768px */
 @media (max-width: 768px) {
-  #resume-container {
+  .resume-root {
     width: 100%;
     max-width: 100%;
     padding: 20px !important;
@@ -2390,4 +2390,30 @@ li {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Off-screen staging area for the WYSIWYG PDF export.
+ *
+ * `preview-capture.ts` clones the live preview into this stage so the exact
+ * same theme CSS (`.resume-root` rules and `body.theme-*` variables) applies
+ * to the export. The stage sits far off-screen: it must stay rendered, but
+ * never visible or interactive. Page frames crop the staged sheet to exact
+ * A4 slices via `overflow: hidden`, so pagination happens in the layout
+ * engine instead of pixel math on the canvas.
+ */
+.export-stage {
+  position: fixed;
+  top: 0;
+  left: -3000px;
+  width: 210mm;
+  z-index: -1;
+  pointer-events: none;
+  background: #ffffff;
+}
+
+.export-stage .resume-page-frame {
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  background: #ffffff;
 }

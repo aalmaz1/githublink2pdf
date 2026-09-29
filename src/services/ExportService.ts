@@ -1,44 +1,37 @@
 /**
- * Export Service - generates a text-based PDF resume.
+ * Export Service — turns the on-screen preview into a WYSIWYG A4 PDF.
  *
- * The previous implementation rasterised the preview with html2canvas, which
- * produced a PDF containing a single flat image. Applicant Tracking Systems
- * parse PDFs as text, so such a file reads as empty to them — the exact
- * failure this app is meant to help users avoid. We therefore lay the resume
- * out directly with jsPDF, emitting real, selectable, machine-readable text.
+ * The PDF the user receives must be the resume they saw: same design, same
+ * theme, same fonts, colors, alignment and localized headings. Re-laying the
+ * data out with a hand-written jsPDF layout (the old approach) could never
+ * keep up with 30 CSS themes, so the export now works directly from the
+ * rendered preview:
+ *
+ *   1. `preview-capture.ts` rasterises the staged preview into A4 pages and
+ *      measures every visible word.
+ *   2. Each page is placed in the PDF as its exact visual snapshot.
+ *   3. An invisible text layer (PDF text rendering mode 3) is drawn on top
+ *      of each page from the measured words. The text is real, selectable
+ *      and extractable — ATS parsers and copy/paste still work — while the
+ *      visible content is pixel-identical to the preview.
  */
 import type { jsPDF as JsPdfType } from 'jspdf';
-import { ResumeData, SkillCategory, TimeBoundedEntity } from './../types';
-
-/** A4 page geometry, in millimetres. */
-const PAGE_WIDTH = 210;
-const PAGE_HEIGHT = 297;
-const MARGIN_X = 18;
-const MARGIN_TOP = 18;
-const MARGIN_BOTTOM = 18;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
-
-/** Typography, in points. */
-const FONT_NAME = 12;
-const FONT_TITLE = 10.5;
-const FONT_CONTACT = 9.5;
-const FONT_SECTION = 11;
-const FONT_BODY = 9.5;
-
-/** Vertical rhythm, in millimetres. */
-const LINE_HEIGHT = 4.6;
-const SECTION_GAP = 5.5;
-const ENTITY_GAP = 3.4;
-const BULLET_INDENT = 4.5;
+import { ResumeData } from './../types';
+import {
+  capturePreviewPages,
+  CapturedPreview,
+  PreviewPage
+} from './preview-capture';
 
 /**
- * Strip characters the PDF core fonts cannot encode.
+ * Strip characters the invisible PDF text layer cannot encode.
  *
- * jsPDF's built-in Helvetica is a single-byte font. Handing it an emoji (very
- * common in GitHub repository descriptions) makes it emit the raw UTF-16
- * bytes, so the line turns into "\u0000A\u0000w\u0000e..." garbage in every PDF
- * reader and in any ATS parsing the file. Dropping the unsupported glyphs
- * keeps the surrounding sentence readable and machine-parsable.
+ * The text layer uses the embedded Inter font (full Latin + Cyrillic +
+ * Greek coverage). Emoji (very common in GitHub repository descriptions)
+ * and CJK text are not covered by that font — jsPDF would emit raw UTF-16
+ * bytes, turning the line into "\u0000A\u0000w\u0000e..." garbage for every
+ * text extractor. Those characters stay visible — they are part of the page
+ * raster — they just don't reach the text layer.
  */
 export function sanitizeForPdf(text: string): string {
   return text
@@ -49,35 +42,95 @@ export function sanitizeForPdf(text: string): string {
     )
     // GitHub shorthand such as ":zap:" that renders as an emoji on the site.
     .replace(/:[a-z0-9_+-]+:/gi, '')
-    // Anything else outside Latin-1 that the core fonts cannot represent.
-    .replace(/[^\u0000-\u024F\u2010-\u2015\u2018-\u201D\u2022\u2026\u20AC]/g, '')
+    // Anything outside Inter's coverage (CJK and other scripts) that would
+    // corrupt the text layer. Latin, Greek and Cyrillic are kept.
+    .replace(
+      /[^\u0000-\u036F\u0370-\u03FF\u0400-\u052F\u2010-\u2015\u2018-\u201D\u2022\u2026\u20AC]/g,
+      ''
+    )
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+/** CSS px → PDF pt at the standard 96 dpi. */
+const PX_TO_PT = 72 / 96;
+/** Where the text baseline sits inside a line box, roughly. */
+const BASELINE_RATIO = 0.8;
+
+/** Name under which the text-layer font is registered in jsPDF. */
+const TEXT_FONT = 'Inter';
+
+/**
+ * Embedded text-layer font (lazy).
+ *
+ * jsPDF's built-in Helvetica cannot encode Cyrillic, so a Russian resume's
+ * invisible text layer would come out empty and unreadable to ATS parsers.
+ * The app already self-hosts Inter (OFL, see assets/fonts) for the preview —
+ * the same family embedded as a TTF gives the text layer full Latin +
+ * Cyrillic + Greek coverage. Loaded once, lazily, on first export; if the
+ * fetch fails for any reason the layer silently falls back to Helvetica
+ * (Latin resumes are unaffected).
+ */
+let embeddedFontCache: { regular: string; bold: string } | null = null;
+
+async function loadFontAsset(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Font asset unavailable: ${url}`);
+  const buffer = await response.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function loadEmbeddedFonts(): Promise<{ regular: string; bold: string }> {
+  if (embeddedFontCache) return embeddedFontCache;
+
+  const [regularUrl, boldUrl] = await Promise.all([
+    import('../assets/fonts/Inter-Regular.ttf?url').then(module => module.default),
+    import('../assets/fonts/Inter-Bold.ttf?url').then(module => module.default)
+  ]);
+  const [regular, bold] = await Promise.all([loadFontAsset(regularUrl), loadFontAsset(boldUrl)]);
+
+  embeddedFontCache = { regular, bold };
+  return embeddedFontCache;
 }
 
 export class ExportService {
   private jsPdfCtor: typeof JsPdfType | null = null;
 
   /**
-   * Build the resume PDF and trigger a download.
+   * Capture the live preview and download it as a PDF.
+   *
+   * `container` is the live `#resume-container` — the single source of truth
+   * for both the visuals and (through `readResumeFromDom`) the text.
    */
-  public async exportToPdf(data: ResumeData, fileName?: string): Promise<void> {
-    const doc = await this.createDocument(data);
+  public async exportToPdf(
+    container: HTMLElement,
+    data: ResumeData,
+    fileName?: string
+  ): Promise<void> {
+    const capture = await capturePreviewPages(container);
+    const doc = await this.createDocument(capture, data);
     doc.save(fileName ?? this.buildFileName(data));
   }
 
   /**
-   * Lay the resume out and return the document without saving it.
+   * Assemble the PDF from a captured preview without saving it.
    *
-   * Kept public so the output can be inspected in tests: `save()` triggers a
-   * browser download and is an own property of each instance, so it cannot be
-   * stubbed on the prototype.
+   * Kept public (and taking the capture as input) so tests can feed a fake
+   * capture and inspect the produced document.
    */
-  public async createDocument(data: ResumeData): Promise<JsPdfType> {
+  public async createDocument(
+    capture: CapturedPreview,
+    data: ResumeData
+  ): Promise<JsPdfType> {
     const JsPdf = await this.loadJsPdf();
 
     const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    doc.setFont('helvetica', 'normal');
 
     // PDF metadata is indexed by many parsers, so fill it in properly.
     const name = data.personal.name?.trim() || 'Resume';
@@ -88,12 +141,13 @@ export class ExportService {
       creator: 'github-link2pdf'
     });
 
-    let cursorY = MARGIN_TOP;
-    cursorY = this.renderHeader(doc, data, cursorY);
-    cursorY = this.renderEntities(doc, 'EXPERIENCE', data.experience, cursorY);
-    cursorY = this.renderEntities(doc, 'PROJECTS', data.projects, cursorY);
-    cursorY = this.renderEntities(doc, 'EDUCATION', data.education, cursorY);
-    this.renderSkills(doc, data.skills, cursorY);
+    const textFontFamily = (await this.embedTextLayerFont(doc)) ? TEXT_FONT : 'helvetica';
+
+    capture.pages.forEach((page, index) => {
+      if (index > 0) doc.addPage();
+      this.renderPageImage(doc, page);
+      this.writeInvisibleTextLayer(doc, page, capture.sheetWidthPx, textFontFamily);
+    });
 
     return doc;
   }
@@ -114,6 +168,73 @@ export class ExportService {
   }
 
   /**
+   * Place one page's raster, scaled to fill the A4 page exactly.
+   */
+  private renderPageImage(doc: JsPdfType, page: PreviewPage): void {
+    doc.addImage(
+      page.canvas.toDataURL('image/png'),
+      'PNG',
+      0,
+      0,
+      page.widthMm,
+      page.heightMm
+    );
+  }
+
+  /**
+   * Register the embedded Inter TTFs for the invisible text layer.
+   *
+   * Per-document: jsPDF font registration is instance-scoped, so every new
+   * document registers the (cached) font binaries again. Failure is
+   * non-fatal: the layer falls back to Helvetica, which covers Latin
+   * resumes; Cyrillic words are then filtered out by sanitizeForPdf instead
+   * of corrupting the content stream.
+   */
+  private async embedTextLayerFont(doc: JsPdfType): Promise<boolean> {
+    try {
+      const { regular, bold } = await loadEmbeddedFonts();
+      doc.addFileToVFS(`${TEXT_FONT}-Regular.ttf`, regular);
+      doc.addFont(`${TEXT_FONT}-Regular.ttf`, TEXT_FONT, 'normal');
+      doc.addFileToVFS(`${TEXT_FONT}-Bold.ttf`, bold);
+      doc.addFont(`${TEXT_FONT}-Bold.ttf`, TEXT_FONT, 'bold');
+      return true;
+    } catch {
+      // Helvetica fallback — Latin text still reaches the layer.
+      return false;
+    }
+  }
+
+  /**
+   * Draw the page's words again as invisible text.
+   *
+   * Rendering mode 3 ("invisible") paints nothing, but the text stays in
+   * the content stream: PDF viewers can select and search it, and ATS
+   * parsers read it like any other text layer. Positions are derived from
+   * the same word boxes the page was cut with, so highlight order follows
+   * the visible layout.
+   */
+  private writeInvisibleTextLayer(
+    doc: JsPdfType,
+    page: PreviewPage,
+    sheetWidthPx: number,
+    fontFamily: string
+  ): void {
+    const mmPerPx = page.widthMm / Math.max(sheetWidthPx, 1);
+
+    for (const word of page.words) {
+      const text = sanitizeForPdf(word.text);
+      if (!text) continue;
+
+      doc.setFont(fontFamily, word.bold ? 'bold' : 'normal');
+      doc.setFontSize(Math.max(1, word.fontSizePx * PX_TO_PT));
+      doc.text(text, word.xPx * mmPerPx, (word.topPx + word.heightPx * BASELINE_RATIO) * mmPerPx, {
+        renderingMode: 'invisible',
+        baseline: 'alphabetic'
+      });
+    }
+  }
+
+  /**
    * Load jsPDF on demand so its weight stays out of the initial page load.
    */
   private async loadJsPdf(): Promise<typeof JsPdfType> {
@@ -127,172 +248,6 @@ export class ExportService {
     }
 
     return this.jsPdfCtor;
-  }
-
-  /** Start a new page when the next block would overflow the bottom margin. */
-  private ensureSpace(doc: JsPdfType, cursorY: number, needed: number): number {
-    if (cursorY + needed > PAGE_HEIGHT - MARGIN_BOTTOM) {
-      doc.addPage();
-      return MARGIN_TOP;
-    }
-    return cursorY;
-  }
-
-  /**
-   * Write wrapped text and return the new vertical cursor.
-   */
-  private writeText(
-    doc: JsPdfType,
-    text: string,
-    cursorY: number,
-    options: { size: number; style?: 'normal' | 'bold'; indent?: number; align?: 'left' | 'center' }
-  ): number {
-    const { size, style = 'normal', indent = 0, align = 'left' } = options;
-    doc.setFont('helvetica', style);
-    doc.setFontSize(size);
-
-    const maxWidth = CONTENT_WIDTH - indent;
-    const lines = doc.splitTextToSize(sanitizeForPdf(text), maxWidth) as string[];
-    let y = cursorY;
-
-    for (const line of lines) {
-      y = this.ensureSpace(doc, y, LINE_HEIGHT);
-      const x = align === 'center' ? PAGE_WIDTH / 2 : MARGIN_X + indent;
-      doc.text(line, x, y, { align: align === 'center' ? 'center' : undefined, baseline: 'top' });
-      y += LINE_HEIGHT;
-    }
-
-    return y;
-  }
-
-  private renderHeader(doc: JsPdfType, data: ResumeData, cursorY: number): number {
-    let y = cursorY;
-    const { personal } = data;
-
-    if (personal.name) {
-      y = this.writeText(doc, personal.name, y, { size: FONT_NAME, style: 'bold', align: 'center' });
-    }
-    if (personal.title) {
-      y = this.writeText(doc, personal.title, y, { size: FONT_TITLE, align: 'center' });
-    }
-
-    // Keep each contact detail as plain text; ATS parsers look for these.
-    const contacts = [personal.email, personal.phone, personal.location, personal.github, personal.linkedin]
-      .map(value => value?.trim())
-      .filter((value): value is string => Boolean(value));
-
-    if (contacts.length) {
-      y = this.writeText(doc, contacts.join('  |  '), y, { size: FONT_CONTACT, align: 'center' });
-    }
-
-    return y + SECTION_GAP * 0.6;
-  }
-
-  /** Draw a section heading with an underline rule. */
-  private renderSectionTitle(doc: JsPdfType, title: string, cursorY: number): number {
-    // Keep the heading with at least the first line of its content.
-    let y = this.ensureSpace(doc, cursorY, LINE_HEIGHT * 3);
-    y = this.writeText(doc, title, y, { size: FONT_SECTION, style: 'bold' });
-
-    doc.setDrawColor(140);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN_X, y - 0.6, PAGE_WIDTH - MARGIN_X, y - 0.6);
-
-    return y + 2;
-  }
-
-  private renderEntities(
-    doc: JsPdfType,
-    title: string,
-    entities: TimeBoundedEntity[] | undefined,
-    cursorY: number
-  ): number {
-    if (!entities?.length) return cursorY;
-
-    let y = this.renderSectionTitle(doc, title, cursorY);
-
-    entities.forEach(entity => {
-      // Sanitised up front: the heading and period are drawn directly below
-      // (not through writeText) so they need the same treatment.
-      const heading = sanitizeForPdf(
-        [entity.role, entity.institution].filter(Boolean).join(' - ')
-      );
-
-      if (heading) {
-        y = this.ensureSpace(doc, y, LINE_HEIGHT * 2);
-        const period = sanitizeForPdf(entity.period ?? '');
-
-        if (period) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(FONT_BODY);
-          const periodWidth = doc.getTextWidth(period);
-
-          // Draw the heading first so text extraction yields a natural
-          // reading order ("Role - Company" then the dates) rather than
-          // gluing the period onto the front of the line.
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(FONT_BODY);
-          // Reserve room so a long heading cannot run into the period.
-          const headingLines = doc.splitTextToSize(
-            heading,
-            CONTENT_WIDTH - periodWidth - 4
-          ) as string[];
-
-          const headingTop = y;
-          headingLines.forEach((line, index) => {
-            if (index > 0) y = this.ensureSpace(doc, y, LINE_HEIGHT);
-            doc.text(line, MARGIN_X, y, { baseline: 'top' });
-            y += LINE_HEIGHT;
-          });
-
-          // Right-align the period on the first heading line.
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(FONT_BODY);
-          doc.text(period, PAGE_WIDTH - MARGIN_X - periodWidth, headingTop, { baseline: 'top' });
-        } else {
-          y = this.writeText(doc, heading, y, { size: FONT_BODY, style: 'bold' });
-        }
-      } else if (entity.period) {
-        y = this.writeText(doc, entity.period, y, { size: FONT_BODY });
-      }
-
-      entity.description?.filter(Boolean).forEach(line => {
-        // A hyphen bullet keeps the text extractable; glyph bullets often
-        // decode as garbage in the standard PDF fonts.
-        y = this.writeText(doc, `- ${line}`, y, { size: FONT_BODY, indent: BULLET_INDENT });
-      });
-
-      y += ENTITY_GAP;
-    });
-
-    return y + SECTION_GAP * 0.5;
-  }
-
-  private renderSkills(
-    doc: JsPdfType,
-    skills: (string | SkillCategory)[] | undefined,
-    cursorY: number
-  ): number {
-    if (!skills?.length) return cursorY;
-
-    let y = this.renderSectionTitle(doc, 'SKILLS', cursorY);
-
-    const plain = skills.filter((skill): skill is string => typeof skill === 'string');
-    const grouped = skills.filter((skill): skill is SkillCategory => typeof skill !== 'string');
-
-    if (plain.length) {
-      y = this.writeText(doc, plain.join(', '), y, { size: FONT_BODY });
-    }
-
-    grouped.forEach(group => {
-      const items = group.items?.filter(Boolean).join(', ') ?? '';
-      const text = group.category ? `${group.category}: ${items}` : items;
-      if (text.trim()) {
-        y = this.writeText(doc, text, y, { size: FONT_BODY });
-      }
-    });
-
-    return y;
   }
 
   private slugify(value: string): string {

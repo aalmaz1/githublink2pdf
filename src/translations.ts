@@ -26,6 +26,7 @@ export const en = {
   invalidUsername: 'Please enter a valid GitHub username',
   exportSuccess: 'PDF exported successfully!',
   exportError: 'PDF export error',
+  exportPreparing: 'Preparing PDF — rendering your resume exactly as you see it...',
   jsonSaved: 'JSON file downloaded',
   profileLoaded: 'Profile loaded successfully!',
   fillInExperience: 'GitHub does not know your jobs or studies - add them in the Experience and Education sections.',

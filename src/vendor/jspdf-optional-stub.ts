@@ -3,9 +3,9 @@
  *
  * jsPDF's `.html()` and SVG features lazily import `html2canvas`, `dompurify`
  * and `canvg` — together roughly 376 KB of extra chunks. This app never uses
- * those features: the resume PDF is laid out as native, selectable,
- * machine-readable text (see `ExportService`), so none of that code is ever
- * fetched or run.
+ * those features: the WYSIWYG export rasterises the preview itself with the
+ * separately bundled `html2canvas-pro` (see `services/preview-capture.ts`)
+ * and only hands finished page images to jsPDF.
  *
  * `vite.config.ts` aliases those three packages to this module so the
  * production build emits no dead chunks for them. If `.html()` or SVG

@@ -1,55 +1,12 @@
-# Third-party notices
+Copyright (c) 2016-2018 The Inter Project Authors (me@rsms.me)
 
-## html2canvas-pro
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
 
-- Copyright (c) 2023 yorickshan (https://github.com/yorickshan/html2canvas-pro)
-- Used for the WYSIWYG PDF export: renders the live resume preview
-  (with the chosen design theme) into page rasters.
-- License: MIT
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-This project bundles the following font families, self-hosted from the
-[@fontsource](https://fontsource.org/) packages (official Google Fonts woff2 files):
-
-## Inter
-
-- Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
-- Weight files bundled: 400, 500, 600 (normal)
-- License: SIL Open Font License 1.1 (full text below)
-- `src/assets/fonts/Inter-Regular.ttf` and `Inter-Bold.ttf` are the same
-  Inter family (from the `inter-ui` distribution, OFL license text in
-  `src/assets/fonts/INTER-OFL-LICENSE.txt`), converted to TTF so the PDF
-  export can embed a Unicode font for the invisible text layer
-
-## Merriweather
-
-- Copyright 2024 The Merriweather Project Authors (https://github.com/EbenSorkin/Merriweather4)
-  with Reserved Font Name "Merriweather"
-- Weight files bundled: 400, 700, 900 (normal)
-- License: SIL Open Font License 1.1 (full text below)
-
----
-
-# SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
 
 PREAMBLE
 The goals of the Open Font License (OFL) are to stimulate worldwide
@@ -86,7 +43,7 @@ new environment.
 "Author" refers to any designer, engineer, programmer, technical
 writer or other person who contributed to the Font Software.
 
-PERMISSION & CONDITIONS
+PERMISSION AND CONDITIONS
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of the Font Software, to use, study, copy, merge, embed, modify,
 redistribute, and sell modified and unmodified copies of the Font
@@ -103,9 +60,9 @@ in the appropriate machine-readable metadata fields within text or
 binary files as long as those fields can be easily viewed by the user.
 
 3) No Modified Version of the Font Software may use the Reserved Font
-Name(s) unless explicit written permission is granted by the
-corresponding Copyright Holder. This restriction only applies to the
-primary font name as presented to the users.
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
 
 4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
 Software shall not be used to promote, endorse or advertise any

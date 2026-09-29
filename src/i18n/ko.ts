@@ -22,6 +22,7 @@ const ko: TranslationDict = {
     invalidUsername: '유효한 GitHub 사용자명을 입력하세요',
     exportSuccess: 'PDF 가 성공적으로 내보내졌습니다!',
     exportError: 'PDF 내보내기 오류',
+    exportPreparing: 'PDF 준비 중 — 화면에 보이는 그대로 이력서를 렌더링하고 있습니다...',
     jsonSaved: 'JSON 파일이 다운로드되었습니다',
     profileLoaded: '프로필을 성공적으로 불러왔습니다!',
     fillInExperience: 'GitHub은 경력과 학력을 알지 못합니다. 경력 및 학력 항목에 직접 입력하세요.',
