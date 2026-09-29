@@ -11,8 +11,8 @@ A client-side resume builder that turns a GitHub profile into an editable, ATS-a
 - **Inline editing** — click any text on the preview to change it (`contenteditable`)
 - **ATS checker** — scores structure, keywords, contacts, format, dates, experience, and education (plus an overall summary verdict), with a side panel of concrete recommendations. Each criterion shows its score and its labelled **weight** (share of the total), so `90% · вес 26%` is never confusing
 - **A4 preview** — the editing surface is a real A4 sheet: fixed 210 × 297 mm pages (scaled to fit narrow windows), page guides where the printer will cut, and identical typography, colours and margins on screen and on paper
-- **Smart page breaks** — when the content outgrows one page it is not sliced mid-line: a job entry the page edge would cut moves whole onto the next page, section headings travel with their content, bullets never split mid-sentence and no single line is stranded. The preview mirrors the print engine and shows the real cuts (blank rest-of-page included), and every printed page keeps its full 18 mm margins
-- **Export** — PDF through the browser's own print pipeline, so the file is a 1:1 copy of the sheet on screen: the selected design, theme colours, fonts and page breaks, with real, selectable, machine-readable text (ATS parsers can read it) and a weight of roughly 50–150 KB. Or download the resume as JSON
+- **Smart page breaks** — when the content outgrows one page it is not sliced mid-line: a job entry the page edge would cut moves whole onto the next page, section headings travel with their content, bullets never split mid-sentence and no single line is stranded. The preview mirrors the print engine and shows the real cuts (blank rest-of-page included), and every printed page keeps its full 18 mm margins — including pages 2+, because the cuts are made into explicit A4 page boxes just before printing
+- **Export** — PDF through the browser's own print pipeline, so the file is a 1:1 copy of the sheet on screen: the selected design, theme colours, fonts and page breaks, with real, selectable, machine-readable text (ATS parsers can read it) and a weight of roughly 50–150 KB. The exported pages carry no browser stamp either — no date, page title or URL in the margins, because the pages are framed by the document itself. Or download the resume as JSON
 - **UI** — interface chrome in English, Russian, and Korean; light/dark theme, text alignment; preferences stored in `localStorage`
 - **Demo profile** — a generated sample resume loads immediately so you can try designs without an import
 
@@ -73,11 +73,9 @@ GitHub unauthenticated API limits apply. If import fails with a rate-limit messa
 ## How the PDF export works
 
 There is no PDF library in the bundle. The preview *is* a page: `#resume-container`
-is 210 × 297 mm with the same padding, fonts and type size the printer uses, and
-the print stylesheet (`@media print` at the end of `src/styles.css`) only removes
-the app chrome and pins the fit-to-width zoom back to 1. **Export PDF** therefore
-just calls `window.print()`: pick *Save as PDF* as the destination and the file
-contains exactly what was on screen.
+is 210 × 297 mm with the same padding, fonts and type size the printer uses.
+**Export PDF** just calls `window.print()`: pick *Save as PDF* as the destination
+and the file contains exactly what was on screen.
 
 That choice buys three things at once:
 
@@ -92,12 +90,25 @@ That choice buys three things at once:
 
 Details worth knowing:
 
-- **Page guides.** The hairline every 297 mm marks exactly where the printer
-  breaks the page. It is a guide rather than a contract in one case: when a
-  section heading or entry would be split by the boundary, the browser moves
-  that whole block onto the next page — correct typesetting, and the reason a
-  line of content can appear to sit a few millimetres below a guide while
-  actually landing on the next page.
+- **No browser chrome in the file.** The print pipeline stamps its own running
+  header and footer — date, time, document title, URL, page numbers — into the
+  `@page` margin band. A résumé must not ship with "30.09.2026, 00:52
+  sofia-moreau-resume" at the top of every sheet, so the print stylesheet sets
+  `@page { margin: 0 }` (no band, and the print dialog drops its
+  "Headers and footers" option) and the page frame comes from the document
+  instead: on `beforeprint`, `PrintPaginator` (`src/services/PrintPaginator.ts`)
+  boxes the flow into explicit `.print-page` elements — one 210 × 297 mm sheet
+  per page, cut exactly where the on-screen page guides showed the cuts, with
+  the same 18 mm padding and typography. A cut that falls inside a block (an
+  entry taller than a page has to flow on) splits that block into marked
+  continuation copies so the next page starts flush. When the dialog closes,
+  the editable sheet is restored from a snapshot, byte-for-byte.
+- **Page guides.** The hairline every 297 mm marks exactly where the printed
+  page breaks — and it is a contract: the spacers the preview inserts are the
+  same cut marks the export boxes pages at, so what you see is literally what
+  prints. When a section heading or entry would be split by the boundary, the
+  whole block moves onto the next page — correct typesetting, and the reason a
+  page can end with blank space.
 - **Embedded windows.** An iframe cannot print itself (`window.print()` would
   print the host page), so the resume is handed to a standalone tab through
   `localStorage` plus a `?print=1` flag, restored there, and printed once the
@@ -121,6 +132,8 @@ src/
   designs/design-templates.ts  # The 30 design definitions + helpers
   services/ATSService.ts       # ATS scoring
   services/ExportService.ts    # PDF export via the browser print dialog
+  services/PaginationService.ts# On-screen mirror of the print page breaks
+  services/PrintPaginator.ts   # Boxes the sheet into A4 pages at print time
   config/ats-keywords.ts       # Keyword banks used by the ATS checker
   types.ts, types/ats.ts       # Resume and ATS data types
   utils/github-cache.ts        # localStorage cache for GitHub responses

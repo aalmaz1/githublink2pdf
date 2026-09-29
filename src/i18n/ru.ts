@@ -21,7 +21,7 @@ const ru: TranslationDict = {
     atsCheckBtn: 'Проверка ATS',
     loadingGitHub: 'Загрузка данных GitHub...',
     invalidUsername: 'Введите корректное имя пользователя GitHub',
-    exportSuccess: 'Диалог печати открыт — выберите «Сохранить как PDF», A4, поля «По умолчанию», масштаб 100%',
+    exportSuccess: 'Диалог печати открыт — выберите «Сохранить как PDF», и файл будет в точности как этот предпросмотр',
     exportError: 'Не удалось открыть диалог печати',
     jsonSaved: 'JSON файл загружен',
     profileLoaded: 'Профиль успешно загружен!',

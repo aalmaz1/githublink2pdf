@@ -3,6 +3,7 @@ import { renderResume } from './resume-builder';
 import { readResumeFromDom } from './resume-editor';
 import { ExportService, PRINT_QUERY_FLAG, PrintHandoff } from './services/ExportService';
 import { PaginationService } from './services/PaginationService';
+import { PrintPaginator } from './services/PrintPaginator';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { tr, Lang, TranslationKey, defaultLang, getTranslations, loadTranslations } from './translations';
@@ -28,6 +29,7 @@ const LANG_FLAGS: Record<Lang, string> = {
 const atsService = new ATSService();
 const exportService = new ExportService();
 const paginationService = new PaginationService();
+const printPaginator = new PrintPaginator();
 
 /**
  * Everything a separate printing tab needs to rebuild what is on screen.
@@ -424,6 +426,43 @@ document.addEventListener('DOMContentLoaded', () => {
   container.addEventListener('input', () => {
     paginationService.scheduleUpdate(container, 250);
   });
+
+  // ---- Print pipeline wiring ---------------------------------------------
+  // The PDF is the browser's print pipeline, which stamps its own running
+  // header/footer (date, title, URL) onto every page it has a margin band
+  // for. The print stylesheet therefore sets @page { margin: 0 } — no band,
+  // no browser chrome — and the page frame comes from the document instead:
+  // just before printing, the sheet is boxed into explicit A4 pages, cut
+  // exactly where the preview shows its page guides (PrintPaginator reads
+  // the spacers the PaginationService left there). When the dialog closes,
+  // the editable sheet is restored from a snapshot, byte-for-byte.
+  const isPrintMediaActive = (): boolean =>
+    typeof window.matchMedia === 'function' && window.matchMedia('print').matches;
+
+  const preparePrint = (): void => {
+    // Re-plan while the screen layout is still measurable; once the browser
+    // has switched to print media the on-screen spacers are the plan.
+    if (!isPrintMediaActive()) {
+      paginationService.update(container);
+    }
+    printPaginator.wrapForPrint(container);
+  };
+  const finishPrint = (): void => {
+    printPaginator.unwrapAfterPrint(container);
+    paginationService.scheduleUpdate(container);
+  };
+  window.addEventListener('beforeprint', preparePrint);
+  window.addEventListener('afterprint', finishPrint);
+  // Safety nets for engines that skip afterprint (Safari quirks, tab
+  // teardown mid-dialog): both are idempotent no-ops when already restored.
+  window.addEventListener('pagehide', finishPrint);
+  // jsdom and very old engines have no matchMedia — printing then simply
+  // relies on before/afterprint, which every engine fires.
+  const printMedia =
+    typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
+  printMedia?.addEventListener?.('change', event => {
+    if (!event.matches) finishPrint();
+  });
   
   // Show editable hint after a short delay
   setTimeout(() => showEditableHint(), 2000);
@@ -606,6 +645,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // The print dialog is modal, so the guidance has to be on screen before
       // it opens — a toast fired afterwards would not be read.
       showNotification(tr(currentLang, 'exportSuccess'), 'info');
+      // Flush any pending re-measure so the printed cuts are the ones the
+      // preview shows right now (beforeprint re-checks, but the layout here
+      // is guaranteed to still be the screen one).
+      paginationService.update(container);
       await exportService.exportToPdf(buildPrintHandoff(data));
     } catch (error) {
       console.error('PDF export error:', error);
@@ -691,7 +734,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.history.replaceState(null, '', cleanUrl.toString());
 
     void loadFonts()
-      .then(() => exportService.printCurrentDocument(printHandoff.fileName))
+      .then(() => {
+        // Measure the page cuts in screen mode (beforeprint re-plans only
+        // when the print media has not switched yet) so the boxed pages are
+        // cut where this tab's preview shows them.
+        paginationService.update(container);
+        return exportService.printCurrentDocument(printHandoff.fileName);
+      })
       .catch(() => showNotification(tr(currentLang, 'exportError'), 'error'));
   }
 });

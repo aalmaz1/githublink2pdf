@@ -232,7 +232,8 @@ body.theme-minimal {
   --border-color: #e2e8f0;
 }
 
-body.theme-minimal #resume-container {
+body.theme-minimal #resume-container,
+body.theme-minimal .print-page {
   border: 1px solid #0f172a;
   border-radius: 0;
 }
@@ -280,7 +281,8 @@ body.theme-corporate {
   --muted-color: #718096;
   --border-color: #e2e8f0;
 }
-body.theme-corporate #resume-container {
+body.theme-corporate #resume-container,
+body.theme-corporate .print-page {
   border-top: 6px solid var(--accent-color);
 }
 body.theme-corporate h1 {
@@ -366,7 +368,8 @@ body.theme-creative .section-block h3 {
   border-left: 4px solid var(--accent-color);
   padding-left: 12px;
 }
-body.theme-creative #resume-container {
+body.theme-creative #resume-container,
+body.theme-creative .print-page {
   border-left: 4px solid var(--accent-color);
   border-right: 4px solid var(--accent-color);
 }
@@ -404,6 +407,12 @@ body.theme-designer {
 body.theme-designer #resume-container {
   border-radius: 16px;
   overflow: hidden;
+}
+/* Printed pages keep the rounded look but must never clip overflowing
+   content (a clipped PDF loses text; an overflowing page just prints
+   slightly past the frame). */
+body.theme-designer .print-page {
+  border-radius: 16px;
 }
 body.theme-designer h1 {
   font-size: 2.75rem;
@@ -643,12 +652,19 @@ body.theme-cyber {
   --heading-color: #0a0a0a;
   --muted-color: #666666;
   --border-color: #333333;
+  --resume-bg: #0a0a0a;
+  --resume-text: #00ffff;
 }
 body.theme-cyber #resume-container {
-  background: #0a0a0a;
-  color: #00ffff;
+  background: var(--resume-bg);
+  color: var(--resume-text);
   border: 2px solid #00ffff;
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+body.theme-cyber .print-page {
+  background: var(--resume-bg);
+  color: var(--resume-text);
+  border: 2px solid #00ffff;
 }
 body.theme-cyber h1 {
   color: #00ffff;
@@ -675,10 +691,17 @@ body.theme-terminal {
   --heading-color: #dcfce7;
   --muted-color: #86efac;
   --border-color: #292524;
+  --resume-bg: #0c0a09;
+  --resume-text: #22c55e;
 }
 body.theme-terminal #resume-container {
-  background: #0c0a09;
-  color: #22c55e;
+  background: var(--resume-bg);
+  color: var(--resume-text);
+  border: 1px solid #292524;
+}
+body.theme-terminal .print-page {
+  background: var(--resume-bg);
+  color: var(--resume-text);
   border: 1px solid #292524;
 }
 body.theme-terminal h1::before {
@@ -889,7 +912,8 @@ body.theme-luxury .section-block h3 {
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
-body.theme-luxury #resume-container {
+body.theme-luxury #resume-container,
+body.theme-luxury .print-page {
   border: 3px double var(--accent-color);
 }
 
@@ -1278,6 +1302,39 @@ input[type="text"]:focus {
   line-height: var(--leading-normal);
 }
 
+/* ---- Explicit printed pages (see services/PrintPaginator.ts) -------------
+   Just before printing, the flow is boxed into .print-page elements — one
+   per printed sheet, cut where the preview shows its page guides. The page
+   box carries the same geometry as the sheet (210 × 297 mm, 18 mm padding)
+   and the same typography, so a page on paper is pixel-for-pixel the page
+   the user approved on screen. The @page margin is 0 (see the print block):
+   the browser then decorates no page with its own date/title/URL running
+   header, and the frame the margin used to provide comes from this padding
+   instead — on every page, not just the first fragment of a sliced box. */
+.print-page {
+  width: var(--page-width);
+  /* Exactly one sheet — never a hair more: a box that crosses the paper
+     edge even by a fraction of a millimetre gets fragmented by the print
+     engine, which then re-breaks its content (moving whole entries to the
+     next sheet). Content that slightly overflows the 261 mm content box is
+     absorbed by the 18 mm bottom padding instead, exactly where the
+     on-screen flow put it. */
+  height: var(--page-height);
+  padding: var(--page-padding);
+  background: var(--resume-bg);
+  color: var(--resume-text);
+  font-size: 11pt;
+  font-family: var(--font-resume);
+  line-height: var(--leading-normal);
+}
+
+/* While the resume is boxed for printing the sheet itself becomes a
+   pass-through: the .print-page children are the pages, and a second (sheet)
+   frame around them would double every margin. */
+#resume-container.print-paginated {
+  display: contents;
+}
+
 /* Page-boundary guides: a hairline every 297mm — the cut between two pages.
    PaginationService pads the flow around each cut (see .page-break-spacer
    below) so the content above the line is exactly what page N holds.
@@ -1309,6 +1366,11 @@ input[type="text"]:focus {
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
+  /* A cut can fall inside a skills grid (an oversized one flows across
+     pages); there the spacer must span the full row width instead of taking
+     one grid cell, or it would re-flow the chips behind it. No effect in
+     normal block flow, where grid-column is ignored. */
+  grid-column: 1 / -1;
 }
 
 .page-break-spacer::before {
@@ -1473,33 +1535,34 @@ li {
 
 
 /* ---------------------------------------------------------------------------
-   @media print — the sheet IS the page.
+   @media print — the sheet becomes the pages.
    The preview is a real A4 sheet with the same fonts, colours and type size
    the printer uses, so the layout is not recreated on export: the PDF holds
-   exactly the content the user saw on each page of the sheet. Margins come
-   from @page so every page is framed identically (see the @page rule), and
-   blocks the page edge would slice move whole to the next page — the same
-   decision PaginationService mirrors on screen (break rules at the end of
-   this block). Colours are preserved (print-color-adjust: exact) because
-   the design theme the user picked is part of what they approved.
+   exactly the content the user saw on each page of the sheet. Just before
+   the dialog opens, PrintPaginator boxes the flow into .print-page sheets
+   (210 × 297 mm, same 18 mm padding), cut where the on-screen page guides
+   showed the cuts — so every printed page keeps its full frame and the file
+   is a 1:1 copy of the preview. Colours are preserved
+   (print-color-adjust: exact) because the design theme the user picked is
+   part of what they approved.
    --------------------------------------------------------------------------- */
 @media print {
-  /* Page margins live on the page box, NOT on the sheet: a box fragmented
-     across pages paints its padding only before its first fragment (default
-     box-decoration-break: slice), so sheet padding would give page 1 an
-     18 mm top but pages 2+ no frame at all — text glued to the paper edge.
-     With the margin here every printed page gets the same 18 mm frame.
-     Keep the value in sync with --page-padding: the print column (210 −
-     2 × 18 = 174 mm) must equal the on-screen content width, so lines break
-     on the same words in both places. */
+  /* No browser chrome on the paper. The print pipeline draws its own running
+     header and footer — date, time, document title, URL, page numbers —
+     inside the page margin band (that is where "30.09.2026, 00:52
+     sofia-moreau-resume" came from). The only reliable way to keep it out of
+     the file is no margin at all: with `margin: 0` the browser has nowhere
+     to draw it and the print dialog drops its "Headers and footers" option.
+     The page frame therefore comes from the document — .print-page padding
+     for a boxed (multi-page) resume, the sheet's own padding for the
+     single-page flow below. */
   @page {
     size: A4;
-    margin: 18mm;
+    margin: 0;
   }
 
   html,
   body {
-    /* The sheet carries the page margins itself; the page box gets none. */
     margin: 0 !important;
     padding: 0 !important;
     width: auto !important;
@@ -1532,19 +1595,60 @@ li {
     padding: 0 !important;
   }
 
+  /* The sheet keeps its on-screen box (210 mm wide, 18 mm padding): for a
+     one-page resume — no spacers, no page boxes — that box is exactly the
+     printed page, framed by its own padding. It also keeps a print-media
+     measurement of the sheet valid (PaginationService may re-plan inside
+     beforeprint). Multi-page resumes are boxed (see below), where the shell
+     turns into a pass-through and the .print-page children carry the frame. */
   #resume-container {
-    /* Undo the on-screen fit-to-width zoom and the sheet chrome. The page
-       frame comes from @page (see above), so the sheet itself drops its
-       padding and fills the 174 mm content column — exactly the measure the
-       preview was typeset at, down to the theme borders. */
     zoom: 1 !important;
-    width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+  }
+
+  /* Boxed for printing: the pages are the children; the shell adds no second
+     frame around them. */
+  #resume-container.print-paginated {
+    display: contents;
+  }
+
+  .print-page {
+    box-shadow: none !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  /* A forced break after the last page would add a blank trailing sheet. */
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* The first block of a page sits flush at the page's content top — exactly
+     where the on-screen spacers put it (a spacer absorbs the block's top
+     margin). The last block's bottom margin is dropped for the same reason:
+     on screen it lives in the empty gap between two pages, so it was never
+     part of the page's capacity — keeping it would push the page box past
+     the sheet edge. A block that continues a split parent across a cut (an
+     entry too tall for one page, flowing on) is stripped of the padding and
+     margins that stayed behind on the previous page, and its own first
+     child keeps the same flush position. */
+  .print-page > *:first-child,
+  [data-print-continuation],
+  [data-print-continuation] > *:first-child {
+    margin-top: 0 !important;
+  }
+
+  .print-page > *:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  [data-print-continuation] {
+    padding-top: 0 !important;
   }
 
   /* Page guides and spacers are a screen affordance. */
@@ -1559,25 +1663,22 @@ li {
     print-color-adjust: exact;
   }
 
-  /* ---- Page-break rules ----------------------------------------------------
-     Content may flow across pages, but not every boundary is a fair cut.
-     Blocks in the "keep together" list are moved whole to the next page when
-     the page edge would slice them; a block taller than an entire page keeps
-     flowing instead (an `avoid` rule is best-effort: the engine drops it
-     when the block cannot fit any page) and splits at line boundaries.
-     PaginationService mirrors these rules on screen so the preview shows
-     the same cuts. Browsers always break between line boxes, never through
-     a line of text. */
-  .resume-header,
-  .entity-item,
-  .layout-line,
-  li,
-  .skills-grid,
-  .section-block h3 {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
+  /* ---- Flow page-break rules -----------------------------------------------
+     These govern the un-boxed flow (a one-page resume, and the rare case
+     where a page box's content overflows and the engine has to fragment
+     after all). Blocks in the "keep together" list move whole to the next
+     page when the page edge would slice them; a block taller than an entire
+     page keeps flowing instead (an `avoid` rule is best-effort: the engine
+     drops it when the block cannot fit any page) and splits at line
+     boundaries. PaginationService mirrors these rules on screen so the
+     preview shows the same cuts. */
 
+  /* The resets come FIRST — an entry (.entity-item) and the header are also
+     .positioned-blocks, and when this rule used to sit after the avoid list
+     it silently cancelled `break-inside: avoid` for them (equal specificity,
+     later position). That is how a job entry could end up torn in half by a
+     page edge: its role line stranded at the foot of one page, its bullets
+     on the next. */
   h1,
   h2,
   p,
@@ -1591,6 +1692,16 @@ li {
     page-break-before: auto;
     break-after: auto;
     page-break-after: auto;
+  }
+
+  .resume-header,
+  .section-block .entity-item,
+  .layout-line,
+  li,
+  .skills-grid,
+  .section-block h3 {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   /* No stranded single lines: a paragraph or bullet leaves at least two
