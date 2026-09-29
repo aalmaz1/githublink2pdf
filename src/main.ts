@@ -475,10 +475,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = getCurrentResumeData();
     if (!data) return;
     try {
-      // Pass the selected design so the PDF carries the theme's colours
-      // (the preview gets them via the `theme-*` body class; jsPDF cannot
-      // read CSS, so the design tokens travel in the call itself).
-      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`, currentDesign);
+      // The container is the live preview: the export rasterises exactly
+      // what the user sees (selected theme, edits, alignment) and layers
+      // invisible, ATS-readable text on top. `currentDesign` covers the
+      // page background of a short last page and the fallback layout.
+      await exportService.exportToPdf(
+        data,
+        `${slugify(data.personal.name)}-resume.pdf`,
+        currentDesign,
+        container
+      );
       showNotification(tr(currentLang, 'exportSuccess'), 'success');
     } catch (error) {
       console.error('PDF export error:', error);

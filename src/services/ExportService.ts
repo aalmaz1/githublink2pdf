@@ -1,16 +1,21 @@
 /**
- * Export Service - generates a text-based PDF resume in the selected design.
+ * Export Service - generates the resume PDF for the selected design.
  *
- * The previous implementation rasterised the preview with html2canvas, which
- * produced a PDF containing a single flat image. Applicant Tracking Systems
- * parse PDFs as text, so such a file reads as empty to them — the exact
- * failure this app is meant to help users avoid. We therefore lay the resume
- * out directly with jsPDF, emitting real, selectable, machine-readable text.
+ * Two layers, two guarantees:
  *
- * The visual recipe of the selected design (see `design-templates.ts`) is
- * applied on top of that layout: page backgrounds, header and section
- * background boxes, accent bars, rules, frames and the theme's text
- * colours — the PDF mirrors what the preview shows, while staying text.
+ * 1. Visual layer (primary path): the themed preview DOM is rasterised
+ *    (html2canvas) and placed on the page — the PDF is pixel-for-pixel what
+ *    the user saw on screen, in any design.
+ * 2. Text layer (always): real, machine-readable text. On the visual path
+ *    it is written in PDF render mode 3 (invisible) at the same coordinates
+ *    the DOM shows its text, so Applicant Tracking Systems parse exactly
+ *    what the image displays. When a screenshot is impossible (no DOM,
+ *    capture failure) the document falls back to the fully visible,
+ *    design-themed text layout below.
+ *
+ * The visible fallback is laid out with the design's visual recipe (see
+ * `design-templates.ts`): page backgrounds, header and section background
+ * boxes, accent bars, rules, frames, fonts and the theme's text colours.
  */
 import type { jsPDF as JsPdfType } from 'jspdf';
 import { ResumeData, SkillCategory, TimeBoundedEntity } from './../types';
@@ -30,6 +35,15 @@ const FONT_TITLE = 10.5;
 const FONT_CONTACT = 9.5;
 const FONT_SECTION = 11;
 const FONT_BODY = 9.5;
+
+/** Bounds for the screenshot text layer's per-row font size, in points. */
+const FONT_MIN = 5;
+const FONT_MAX = 48;
+
+/** Clamp a number into [min, max]. */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 /** Vertical rhythm, in millimetres. */
 const LINE_HEIGHT = 4.6;
@@ -73,6 +87,78 @@ export function sanitizeForPdf(text: string): string {
     .trim();
 }
 
+/** One visible text row of the preview, positioned in container pixels. */
+export interface TextRow {
+  /** Offset from the container's left edge, in px. */
+  x: number;
+  /** Offset from the container's top edge, in px. */
+  y: number;
+  /** Rendered line width in px (wrapping hint for the text layer). */
+  width: number;
+  /** Rendered font size converted to points. */
+  sizePt: number;
+  text: string;
+}
+
+/**
+ * Elements that carry an atomic text row of the preview (see
+ * `resume-builder.ts`). None of them nest inside another, so matching each
+ * element once yields every visible line exactly once, in document order.
+ *
+ * Empty placeholder rows (the click-to-edit hints) have no text content and
+ * are dropped, so they never reach the PDF — as they never reach any export.
+ */
+const TEXT_ROW_SELECTOR = 'h1, h2, h3, p, .layout-line, li';
+
+/**
+ * Collect the preview's visible text rows with their on-screen positions.
+ *
+ * Feeds the invisible text layer of the screenshot PDF: the text lands at
+ * the same coordinates the image was captured from, so what an ATS parser
+ * reads is exactly what the user saw.
+ */
+export function collectTextRows(container: HTMLElement): TextRow[] {
+  const origin = container.getBoundingClientRect();
+  const rows: TextRow[] = [];
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT);
+  let node = walker.nextNode();
+  while (node) {
+    const el = node as Element;
+    // A blank entry the user has not filled in is a hint, not content —
+    // its rows (including the lone "-" separator) stay out of the PDF.
+    const insidePlaceholder = el.closest('[data-placeholder-entity]') !== null;
+    if (el.matches(TEXT_ROW_SELECTOR) && !insidePlaceholder) {
+      const box = el.getBoundingClientRect();
+      const text = sanitizeForPdf(el.textContent ?? '');
+      if (text && /[a-z0-9а-яёії]/i.test(text)) {
+        // CSS px -> pt is 0.75. Some engines report non-numeric shorthand
+        // (e.g. "medium"), so fall back to the body size; the clamp keeps
+        // odd computed values (0 for hidden leftovers) in a readable range.
+        const fontSizePx = parseFloat(window.getComputedStyle(el).fontSize);
+        const sizePt = clamp(
+          Number.isFinite(fontSizePx) ? fontSizePx * 0.75 : 10,
+          FONT_MIN,
+          FONT_MAX
+        );
+        rows.push({
+          x: box.left - origin.left,
+          y: box.top - origin.top,
+          width: Math.max(1, box.width),
+          sizePt,
+          text
+        });
+      }
+    }
+    node = walker.nextNode();
+  }
+
+  // Document order already is reading order for this single-column layout;
+  // the sort only guards against odd DOM orderings.
+  rows.sort((a, b) => a.y - b.y || a.x - b.x);
+  return rows;
+}
+
 export class ExportService {
   private jsPdfCtor: typeof JsPdfType | null = null;
   /** The design recipe being laid out; set per document. */
@@ -81,11 +167,18 @@ export class ExportService {
   /**
    * Build the resume PDF and trigger a download.
    *
-   * `designId` is the design currently selected in the UI; its visual
-   * recipe is what the PDF is drawn in.
+   * `designId` is the design currently selected in the UI and `container`
+   * the live preview element. When the container is available the PDF is a
+   * pixel-perfect screenshot of what the user sees, plus an invisible text
+   * layer; otherwise it falls back to the visible themed text layout.
    */
-  public async exportToPdf(data: ResumeData, fileName?: string, designId?: string): Promise<void> {
-    const doc = await this.createDocument(data, designId);
+  public async exportToPdf(
+    data: ResumeData,
+    fileName?: string,
+    designId?: string,
+    container?: HTMLElement | null
+  ): Promise<void> {
+    const doc = await this.createDocument(data, designId, container);
     doc.save(fileName ?? this.buildFileName(data));
   }
 
@@ -96,7 +189,144 @@ export class ExportService {
    * browser download and is an own property of each instance, so it cannot be
    * stubbed on the prototype.
    */
-  public async createDocument(data: ResumeData, designId?: string): Promise<JsPdfType> {
+  public async createDocument(
+    data: ResumeData,
+    designId?: string,
+    container?: HTMLElement | null
+  ): Promise<JsPdfType> {
+    if (container) {
+      try {
+        return await this.createDocumentFromDom(data, designId, container);
+      } catch (error) {
+        // A failed screenshot must never break the export: fall back to the
+        // fully visible themed text layout.
+        console.warn('Preview screenshot failed, exporting themed text instead.', error);
+      }
+    }
+    return this.createTextDocument(data, designId);
+  }
+
+  /**
+   * The primary path: a PDF that is exactly what the preview shows.
+   *
+   * The themed container is rasterised at 2x and sliced into A4 pages; over
+   * the image the same text is written again in render mode 3 (invisible),
+   * at the DOM's own coordinates, so ATS parsers extract the very text the
+   * user sees, in the very places they see it.
+   */
+  private async createDocumentFromDom(
+    data: ResumeData,
+    designId: string | undefined,
+    container: HTMLElement
+  ): Promise<JsPdfType> {
+    const JsPdf = await this.loadJsPdf();
+    const module = await import('html2canvas');
+    const html2canvas = (module.default ?? module) as (el: HTMLElement, opts?: object) => Promise<HTMLCanvasElement>;
+    if (typeof html2canvas !== 'function') {
+      throw new Error('Preview screenshot library unavailable');
+    }
+
+    const theme = getDesignPdfTheme(designId);
+
+    // 2x for crisp text; relax to 1.5x for very long resumes to keep the
+    // intermediate canvas (and the PDF) from getting huge.
+    const naturalHeight = container.getBoundingClientRect().height;
+    const scale = naturalHeight > 3400 ? 1.5 : 2;
+    const canvas = await html2canvas(container, {
+      scale,
+      useCORS: true,
+      logging: false,
+      // Any transparent pixel (a theme without an explicit sheet background)
+      // takes the design's page colour instead of reading as white.
+      backgroundColor: `rgb(${theme.pageBg[0]}, ${theme.pageBg[1]}, ${theme.pageBg[2]})`,
+      onclone: (_doc: Document, cloned: HTMLElement) => {
+        // Drop UI chrome that belongs to the page, not to the sheet.
+        cloned.style.boxShadow = 'none';
+        cloned.style.margin = '0';
+      }
+    });
+
+    const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    const name = data.personal.name?.trim() || 'Resume';
+    doc.setProperties({
+      title: `${name} - Resume`,
+      subject: data.personal.title ?? '',
+      author: name,
+      creator: 'github-link2pdf'
+    });
+
+    const pxPerMm = canvas.width / PAGE_WIDTH;
+    const pageHpx = PAGE_HEIGHT * pxPerMm;
+    const pages = Math.max(1, Math.ceil((canvas.height - 0.5) / pageHpx));
+
+    for (let page = 0; page < pages; page += 1) {
+      if (page > 0) doc.addPage();
+
+      // Area below a short last page keeps the design's page background.
+      if (!isWhite(theme.pageBg)) {
+        doc.setFillColor(theme.pageBg[0], theme.pageBg[1], theme.pageBg[2]);
+        doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
+      }
+
+      const y0 = page * pageHpx;
+      const sliceHpx = Math.min(pageHpx, canvas.height - y0);
+      const slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = Math.max(1, Math.round(sliceHpx));
+      const ctx = slice.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D context unavailable');
+      ctx.drawImage(canvas, 0, y0, canvas.width, sliceHpx, 0, 0, canvas.width, sliceHpx);
+      doc.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, PAGE_WIDTH, sliceHpx / pxPerMm);
+    }
+
+    // Invisible text layer: the DOM's own text at the DOM's own positions.
+    this.writeInvisibleTextLayer(doc, container, pageHpx, pxPerMm, pages);
+
+    return doc;
+  }
+
+  /**
+   * Write every visible text row of the preview as invisible PDF text
+   * (render mode 3 — selectable, extractable, never painted).
+   *
+   * Each row keeps the size, position and width it has on screen, so the
+   * invisible layer sits exactly over what the image shows — parsers that
+   * cross-check text against pixels find a match.
+   */
+  private writeInvisibleTextLayer(
+    doc: JsPdfType,
+    container: HTMLElement,
+    pageHpx: number,
+    pxPerMm: number,
+    pages: number
+  ): void {
+    const rows = collectTextRows(container);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    for (let page = 0; page < pages; page += 1) {
+      doc.setPage(page + 1);
+      const y0 = page * pageHpx;
+      for (const row of rows) {
+        if (row.y < y0 || row.y >= y0 + pageHpx) continue;
+        doc.setFontSize(row.sizePt);
+        // maxWidth makes multi-line rows wrap like they do on screen.
+        doc.text(row.text, row.x / pxPerMm, (row.y - y0) / pxPerMm, {
+          baseline: 'top',
+          renderingMode: 'invisible',
+          maxWidth: row.width / pxPerMm
+        });
+      }
+    }
+  }
+
+  /** The visible, design-themed text layout (fallback and testable path). */
+  private createTextDocument(data: ResumeData, designId?: string): Promise<JsPdfType> {
+    return this.layoutText(data, designId);
+  }
+
+  private async layoutText(data: ResumeData, designId?: string): Promise<JsPdfType> {
     const JsPdf = await this.loadJsPdf();
     this.theme = getDesignPdfTheme(designId);
 

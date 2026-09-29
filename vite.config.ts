@@ -56,10 +56,11 @@ export default defineConfig({
   },
   resolve: {
     alias: [
-      // jsPDF lazily imports these renderers for its `.html()`/SVG features,
+      // jsPDF lazily imports canvg and dompurify for its SVG features,
       // which this app never uses. Pointing them at a throwing stub stops
-      // ~376 KB of dead chunks (html2canvas, canvg, dompurify) from shipping.
-      { find: 'html2canvas', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) },
+      // the dead chunks from shipping. html2canvas is NOT stubbed: the
+      // export feature uses it directly to screenshot the themed preview
+      // (see ExportService.createDocumentFromDom).
       { find: 'canvg', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) },
       { find: 'dompurify', replacement: fileURLToPath(new URL('./src/vendor/jspdf-optional-stub.ts', import.meta.url)) }
     ]

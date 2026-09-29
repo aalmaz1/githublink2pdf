@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ExportService, sanitizeForPdf } from '../src/services/ExportService';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ExportService, collectTextRows, sanitizeForPdf } from '../src/services/ExportService';
 import { ResumeData } from '../src/types';
+import html2canvas from 'html2canvas';
+
+vi.mock('html2canvas', () => ({ default: vi.fn() }));
 import {
   contrast,
   DESIGNS,
@@ -333,6 +336,164 @@ describe('themed PDF export', () => {
     const resolved = ensureReadableOn(dim, [10, 10, 10]);
     expect(contrast(resolved, [10, 10, 10])).toBeGreaterThanOrEqual(4.5);
     expect(resolved[0]).toBeGreaterThan(dim[0]); // lightened, hue preserved
+  });
+});
+
+describe('screenshot export (visual layer + invisible text)', () => {
+  /** A valid 1x1 PNG for jsPDF's addImage. */
+  const ONE_PIXEL_PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+  function buildPreviewDom(): HTMLElement {
+    document.body.innerHTML = `
+      <div id="resume-container">
+        <div class="resume-header">
+          <h1 class="layout-line">Ada Lovelace</h1>
+          <h2 class="layout-line">Software Engineer</h2>
+          <p class="layout-line">ada@example.com | London</p>
+        </div>
+        <div class="section-block">
+          <h3>EXPERIENCE</h3>
+          <div class="entity-item">
+            <div class="layout-line"><strong>Lead Engineer</strong> - <span>Engines</span> <span>2020 - Present</span></div>
+            <ul><li>Reduced latency by 40 percent.</li></ul>
+          </div>
+        </div>
+      </div>`;
+    return document.getElementById('resume-container') as HTMLElement;
+  }
+
+  /** The service creates a canvas per page slice; hand it a working stand-in. */
+  function stubSliceCanvas(): void {
+    const nativeCreate = document.createElement.bind(document);
+    const slice = {
+      width: 0,
+      height: 0,
+      style: {},
+      getContext: () => ({ drawImage: vi.fn() }),
+      toDataURL: () => ONE_PIXEL_PNG
+    };
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string, ...rest: unknown[]) => {
+      if (tag === 'canvas') return slice as unknown as HTMLCanvasElement;
+      return nativeCreate(tag as string, ...(rest as []));
+    });
+  }
+
+  function rawBinary(doc: any): string {
+    const raw: string = doc.output('datauristring');
+    return Buffer.from(raw.slice(raw.indexOf(',') + 1), 'base64').toString('binary');
+  }
+
+  /**
+   * jsdom reports zero-sized boxes, which would make the text layer's
+   * maxWidth wrap every character onto its own line. Give the DOM plausible
+   * geometry so the layer behaves like it does in a real browser.
+   */
+  function stubBoxes(widthPx = 1400): void {
+    const rect = {
+      left: 0,
+      top: 0,
+      right: widthPx,
+      bottom: 24,
+      width: widthPx,
+      height: 24,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    };
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('screenshots the preview and layers invisible text over it', async () => {
+    const container = buildPreviewDom();
+    stubSliceCanvas();
+    stubBoxes();
+    // 1588 x 2200px = 210mm x ~291mm, i.e. a single A4 page.
+    (html2canvas as any).mockResolvedValue({ width: 1588, height: 2200 });
+
+    const doc = await new ExportService().createDocument(data, 'swiss', container);
+
+    expect(html2canvas).toHaveBeenCalledWith(container, expect.objectContaining({ scale: 2 }));
+    expect(doc.getNumberOfPages()).toBe(1);
+
+    const binary = rawBinary(doc);
+    // Render mode 3 ("3 Tr") is the signature of the invisible text layer.
+    expect(binary).toContain('3 Tr');
+    // ...and that layer carries the preview's text, readable by parsers.
+    expect(binary).toContain('Ada Lovelace');
+    expect(binary).toContain('Reduced latency by 40 percent.');
+  });
+
+  it('splits a long resume into one image slice per A4 page', async () => {
+    const container = buildPreviewDom();
+    stubSliceCanvas();
+    stubBoxes();
+    // 4500px tall at 210mm width is just over two A4 pages.
+    (html2canvas as any).mockResolvedValue({ width: 1588, height: 4500 });
+
+    const doc = await new ExportService().createDocument(data, 'swiss', container);
+    expect(doc.getNumberOfPages()).toBe(3);
+  });
+
+  it('falls back to the visible themed text when the screenshot fails', async () => {
+    const container = buildPreviewDom();
+    (html2canvas as any).mockRejectedValue(new Error('canvas unsupported'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const doc = await new ExportService().createDocument(data, 'swiss', container);
+      // The fallback is the fully visible, selectable themed layout
+      // (swiss uppercases the name, as on screen).
+      expect(extractText(doc)).toContain('ADA LOVELACE');
+      expect(extractText(doc)).toContain('EXPERIENCE');
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('collectTextRows', () => {
+  it('collects visible rows in reading order and skips empty placeholders', () => {
+    document.body.innerHTML = `
+      <div id="c">
+        <div class="resume-header">
+          <h1 class="layout-line">Ada Lovelace</h1>
+          <h2 class="layout-line">Software Engineer</h2>
+          <p class="layout-line">ada@example.com | London</p>
+        </div>
+        <div class="section-block">
+          <h3>EXPERIENCE</h3>
+          <div class="entity-item">
+            <div class="layout-line"><strong>Lead Engineer</strong> - <span>Engines</span> <span>2020 - Present</span></div>
+            <ul><li>Reduced latency by 40 percent.</li></ul>
+          </div>
+        </div>
+        <div class="section-block section-empty">
+          <h3>EDUCATION</h3>
+          <div class="entity-item" data-placeholder-entity="true">
+            <div class="layout-line"><strong data-placeholder="Add a degree"></strong> - <span data-placeholder="Add a school"></span> <span data-placeholder="Dates"></span></div>
+            <ul><li data-placeholder="Add an achievement"></li></ul>
+          </div>
+        </div>
+      </div>`;
+
+    const rows = collectTextRows(document.getElementById('c') as HTMLElement);
+
+    // The placeholder hints live in CSS ::before, so they are absent from
+    // textContent and never reach the PDF; the empty section's visible
+    // heading is kept, because it is visible on screen.
+    expect(rows.map(row => row.text)).toEqual([
+      'Ada Lovelace',
+      'Software Engineer',
+      'ada@example.com | London',
+      'EXPERIENCE',
+      'Lead Engineer - Engines 2020 - Present',
+      'Reduced latency by 40 percent.',
+      'EDUCATION'
+    ]);
   });
 });
 

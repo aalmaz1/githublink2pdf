@@ -1,16 +1,15 @@
 /**
- * Dead-weight guard for jsPDF's optional renderers.
+ * Dead-weight guard for jsPDF's optional SVG renderer.
  *
- * jsPDF's `.html()` and SVG features lazily import `html2canvas`, `dompurify`
- * and `canvg` — together roughly 376 KB of extra chunks. This app never uses
- * those features: the resume PDF is laid out as native, selectable,
- * machine-readable text (see `ExportService`), so none of that code is ever
- * fetched or run.
+ * jsPDF's SVG feature lazily imports `dompurify` and `canvg`. This app never
+ * uses it: the resume PDF is a screenshot of the themed preview plus a real
+ * (invisible) text layer (see `ExportService`), so that code is never needed.
  *
- * `vite.config.ts` aliases those three packages to this module so the
- * production build emits no dead chunks for them. If `.html()` or SVG
- * rendering is ever called anyway, it fails fast with a clear error instead
- * of silently downloading a heavy dependency.
+ * `vite.config.ts` aliases those packages to this module so the production
+ * build emits no dead chunks for them. If SVG rendering is ever called
+ * anyway, it fails fast with a clear error instead of silently downloading
+ * a heavy dependency. (html2canvas is NOT stubbed — the export feature uses
+ * it directly for the visual layer.)
  */
 
 function unavailable(feature: string): never {
