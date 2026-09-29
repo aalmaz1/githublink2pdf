@@ -1278,9 +1278,10 @@ input[type="text"]:focus {
   line-height: var(--leading-normal);
 }
 
-/* Page-boundary guides: a hairline every 297mm, i.e. exactly where the
-   printed page breaks (the printer cuts between line boxes, so content keeps
-   its position). Screen only — hidden in the print stylesheet. */
+/* Page-boundary guides: a hairline every 297mm — the cut between two pages.
+   PaginationService pads the flow around each cut (see .page-break-spacer
+   below) so the content above the line is exactly what page N holds.
+   Screen only — hidden in the print stylesheet. */
 #resume-container::after {
   content: '';
   position: absolute;
@@ -1292,6 +1293,42 @@ input[type="text"]:focus {
     rgba(15, 23, 42, 0.25) calc(var(--page-height) - 1px),
     rgba(15, 23, 42, 0.25) var(--page-height)
   );
+}
+
+/* ---- Page-break spacers (screen only) -------------------------------------
+   Injected by PaginationService to mirror the print engine's fragmentation:
+   when the print rules move a block to the next page, a spacer of 36 mm
+   (the bottom margin of one page + the top margin of the next) is inserted
+   in front of it. The preview then shows real pages — content ends where
+   the page ends, the next block starts on the next sheet — with a faint
+   cut mark through the gap. The spacers carry no resume data, are not
+   editable, and are removed from the printed output. */
+.page-break-spacer {
+  position: relative;
+  height: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.page-break-spacer::before {
+  content: '\2702';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(15, 23, 42, 0.35);
+}
+
+.page-break-spacer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 18px;
+  right: 0;
+  border-top: 1px dashed rgba(15, 23, 42, 0.25);
 }
 
 /* Layout Primitives */
@@ -1437,18 +1474,27 @@ li {
 
 /* ---------------------------------------------------------------------------
    @media print — the sheet IS the page.
-   The preview is a real A4 sheet with the same padding, fonts, colours and
-   type size the printer uses, so the layout is not recreated on export: the
-   PDF holds exactly the content that followed each page guide on screen,
-   except where a block that would be split by the boundary moves to the next
-   page (see the break rules at the end of this block). Colours are preserved
-   (print-color-adjust: exact) because the design theme the user picked is
-   part of what they approved.
+   The preview is a real A4 sheet with the same fonts, colours and type size
+   the printer uses, so the layout is not recreated on export: the PDF holds
+   exactly the content the user saw on each page of the sheet. Margins come
+   from @page so every page is framed identically (see the @page rule), and
+   blocks the page edge would slice move whole to the next page — the same
+   decision PaginationService mirrors on screen (break rules at the end of
+   this block). Colours are preserved (print-color-adjust: exact) because
+   the design theme the user picked is part of what they approved.
    --------------------------------------------------------------------------- */
 @media print {
+  /* Page margins live on the page box, NOT on the sheet: a box fragmented
+     across pages paints its padding only before its first fragment (default
+     box-decoration-break: slice), so sheet padding would give page 1 an
+     18 mm top but pages 2+ no frame at all — text glued to the paper edge.
+     With the margin here every printed page gets the same 18 mm frame.
+     Keep the value in sync with --page-padding: the print column (210 −
+     2 × 18 = 174 mm) must equal the on-screen content width, so lines break
+     on the same words in both places. */
   @page {
     size: A4;
-    margin: 0;
+    margin: 18mm;
   }
 
   html,
@@ -1487,19 +1533,23 @@ li {
   }
 
   #resume-container {
-    /* Undo the on-screen fit-to-width zoom and the sheet chrome. */
+    /* Undo the on-screen fit-to-width zoom and the sheet chrome. The page
+       frame comes from @page (see above), so the sheet itself drops its
+       padding and fills the 174 mm content column — exactly the measure the
+       preview was typeset at, down to the theme borders. */
     zoom: 1 !important;
-    width: var(--page-width) !important;
+    width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: var(--page-padding) !important;
+    padding: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
 
-  /* Page guides are a screen affordance. */
-  #resume-container::after {
+  /* Page guides and spacers are a screen affordance. */
+  #resume-container::after,
+  .page-break-spacer {
     display: none !important;
   }
 
@@ -1509,34 +1559,52 @@ li {
     print-color-adjust: exact;
   }
 
-  /* Let text flow across pages exactly as it flows down the sheet: no forced
-     "keep together" breaks, so the page guides the user saw are literally
-     where the printer cuts. Browsers still break between line boxes, never
-     through a line of text. */
+  /* ---- Page-break rules ----------------------------------------------------
+     Content may flow across pages, but not every boundary is a fair cut.
+     Blocks in the "keep together" list are moved whole to the next page when
+     the page edge would slice them; a block taller than an entire page keeps
+     flowing instead (an `avoid` rule is best-effort: the engine drops it
+     when the block cannot fit any page) and splits at line boundaries.
+     PaginationService mirrors these rules on screen so the preview shows
+     the same cuts. Browsers always break between line boxes, never through
+     a line of text. */
+  .resume-header,
+  .entity-item,
+  .layout-line,
+  li,
+  .skills-grid,
+  .section-block h3 {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   h1,
   h2,
-  h3,
   p,
   ul,
   ol,
-  li,
   .positioned-block,
-  .section-block,
-  .entity-item,
-  .skills-grid,
-  .layout-line {
+  .section-block {
     break-inside: auto;
     page-break-inside: auto;
     break-before: auto;
     page-break-before: auto;
     break-after: auto;
     page-break-after: auto;
-    orphans: 1;
-    widows: 1;
+  }
+
+  /* No stranded single lines: a paragraph or bullet leaves at least two
+     lines on either side of a cut. The properties inherit, so setting them
+     once here covers everything inside the sheet. */
+  #resume-container {
+    orphans: 2;
+    widows: 2;
   }
 
   /* A section heading is never left alone at the foot of a page: it travels
-     with at least the first line of its section. */
+     with at least the first block of its section. Same for an entry's
+     role/company/period line when the entry itself is too tall to keep
+     together and has to flow across the boundary. */
   .section-block h3,
   .entity-item .layout-line {
     break-after: avoid;

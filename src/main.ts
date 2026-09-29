@@ -2,6 +2,7 @@ import { ResumeData } from './types';
 import { renderResume } from './resume-builder';
 import { readResumeFromDom } from './resume-editor';
 import { ExportService, PRINT_QUERY_FLAG, PrintHandoff } from './services/ExportService';
+import { PaginationService } from './services/PaginationService';
 import { fetchGitHubResumeData } from './github-provider';
 import { generateDemoProfile } from './demo-profile';
 import { tr, Lang, TranslationKey, defaultLang, getTranslations, loadTranslations } from './translations';
@@ -26,6 +27,7 @@ const LANG_FLAGS: Record<Lang, string> = {
 };
 const atsService = new ATSService();
 const exportService = new ExportService();
+const paginationService = new PaginationService();
 
 /**
  * Everything a separate printing tab needs to rebuild what is on screen.
@@ -229,6 +231,10 @@ function applyTextAlign(container: HTMLElement, align: 'left' | 'center' | 'just
       }
     });
   });
+
+  // Alignment changes the measure of several blocks (list padding collapses
+  // to 0 for non-left alignment), so the page cuts must be re-measured.
+  paginationService.scheduleUpdate(container);
 }
 
 /**
@@ -257,6 +263,13 @@ function applyDesign(designId: string): void {
   const designSelect = document.getElementById('design-select') as HTMLSelectElement;
   if (designSelect) {
     designSelect.value = designId;
+  }
+
+  // A design swap changes type sizes and spacing (--padding-unit, heading
+  // sizes), so the page cuts have to be found again on the new metrics.
+  const container = document.getElementById('resume-container');
+  if (container) {
+    paginationService.scheduleUpdate(container);
   }
 }
 
@@ -387,11 +400,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start fetching the font stylesheets right after first render; the UI
   // paints immediately and swaps fonts in once they arrive.
+  // Fonts change the metrics of every line box, so the page cuts are
+  // re-measured once the final typography is in place.
+  const repaginateAfterFonts = (): void => {
+    void loadFonts()
+      .then(() => {
+        const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+        return fonts?.ready ?? Promise.resolve();
+      })
+      .then(
+        () => paginationService.scheduleUpdate(container, 0),
+        () => paginationService.scheduleUpdate(container, 0)
+      );
+  };
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => loadFonts(), { timeout: 1500 });
+    requestIdleCallback(repaginateAfterFonts, { timeout: 1500 });
   } else {
-    setTimeout(loadFonts, 0);
+    setTimeout(repaginateAfterFonts, 0);
   }
+
+  // Inline edits reflow the sheet; re-check the page cuts after each burst
+  // of typing (the service debounces internally).
+  container.addEventListener('input', () => {
+    paginationService.scheduleUpdate(container, 250);
+  });
   
   // Show editable hint after a short delay
   setTimeout(() => showEditableHint(), 2000);
