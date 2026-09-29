@@ -3,6 +3,7 @@
  */
 
 import { ResumeData } from '../types';
+import { applySmartPageBreaks, PaginationResult } from './pdf-pagination';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -61,28 +62,41 @@ export class ExportService {
     // Add PDF export mode class for proper page break styling
     document.body.classList.add('pdf-export-mode');
 
+    // Smart pagination: measure real element positions and mark every block
+    // that would be cut in half by a page boundary, so html2pdf.js moves it
+    // entirely onto the next page instead of slicing it mid-content.
+    let pagination: (PaginationResult & { cleanup: () => void }) | null = null;
+
     try {
+      pagination = applySmartPageBreaks(container);
+
       await this.html2pdf()
         .set({
-          margin: [0, 0, 0, 0],
+          margin: [10, 0, 10, 0],
           filename: 'resume.pdf',
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
+          html2canvas: {
             scale: 2,
             letterRendering: true,
             useCORS: true,
             logging: false,
             windowWidth: 794,
-            scrollY: 0
+            scrollY: -window.scrollY,
+            windowHeight: Math.max(container.scrollHeight, window.innerHeight)
           },
-          jsPDF: { 
-            unit: 'mm', 
-            format: 'a4', 
+          jsPDF: {
+            unit: 'mm',
+            format: 'a4',
             orientation: 'portrait',
-            hotfixes: ['PAGE_BREAK']
+            hotfixes: ['px_scaling']
           },
           pagebreak: {
-            mode: ['avoid-all', 'css', 'legacy'],
+            // 'css' honors break-inside on block elements; our dynamically
+            // added .avoid-page-break markers handle section titles and
+            // items that cross page boundaries. 'avoid-all' is intentionally
+            // NOT used: it forbids breaks inside EVERY element and produces
+            // blank pages when one block is taller than a full page.
+            mode: ['css', 'legacy'],
             before: '.page-break-before',
             after: '.page-break-after',
             avoid: '.avoid-page-break'
@@ -91,7 +105,8 @@ export class ExportService {
         .from(container)
         .save();
     } finally {
-      // Remove PDF export mode class after export
+      // Restore the DOM to its pre-export state
+      if (pagination) pagination.cleanup();
       document.body.classList.remove('pdf-export-mode');
     }
   }

@@ -1671,6 +1671,19 @@ li {
 .pdf-export-mode #resume-container {
   width: 210mm !important;
   max-width: 210mm !important;
+  /* During html2pdf export the container canvas is sliced by page height.
+     The container's own top/bottom padding would be cut in half at every
+     page boundary, so we remove it here and let jsPDF margins (set in
+     ExportService) provide the printable top/bottom spacing instead. */
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Section titles must never be orphaned at the bottom of a page:
+   keep the heading glued to the block that follows it. */
+.pdf-export-mode .positioned-block.section-block > h3 + .positioned-block.entity-item {
+  break-before: avoid !important;
+  page-break-before: avoid !important;
 }
 
 .pdf-export-mode .resume-header,
