@@ -475,7 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = getCurrentResumeData();
     if (!data) return;
     try {
-      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`);
+      // Pass the selected design so the PDF carries the theme's colours
+      // (the preview gets them via the `theme-*` body class; jsPDF cannot
+      // read CSS, so the design tokens travel in the call itself).
+      await exportService.exportToPdf(data, `${slugify(data.personal.name)}-resume.pdf`, currentDesign);
       showNotification(tr(currentLang, 'exportSuccess'), 'success');
     } catch (error) {
       console.error('PDF export error:', error);

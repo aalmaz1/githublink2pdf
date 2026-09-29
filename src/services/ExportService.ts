@@ -9,6 +9,14 @@
  */
 import type { jsPDF as JsPdfType } from 'jspdf';
 import { ResumeData, SkillCategory, TimeBoundedEntity } from './../types';
+import { getDesignPdfTokens, PdfDesignTokens, Rgb } from './../designs/design-templates';
+
+/**
+ * Body copy stays black regardless of the theme. The design only colours the
+ * accents (name, section headings, rule, dates) so the document keeps full
+ * ATS readability and stays sensible when printed in monochrome.
+ */
+const BODY_TEXT: Rgb = [0, 0, 0];
 
 /** A4 page geometry, in millimetres. */
 const PAGE_WIDTH = 210;
@@ -60,9 +68,13 @@ export class ExportService {
 
   /**
    * Build the resume PDF and trigger a download.
+   *
+   * `designId` is the design currently selected in the UI (see
+   * `design-templates.ts`). The PDF is generated with real text, so the
+   * theme is applied through its colour tokens rather than CSS.
    */
-  public async exportToPdf(data: ResumeData, fileName?: string): Promise<void> {
-    const doc = await this.createDocument(data);
+  public async exportToPdf(data: ResumeData, fileName?: string, designId?: string): Promise<void> {
+    const doc = await this.createDocument(data, designId);
     doc.save(fileName ?? this.buildFileName(data));
   }
 
@@ -73,8 +85,9 @@ export class ExportService {
    * browser download and is an own property of each instance, so it cannot be
    * stubbed on the prototype.
    */
-  public async createDocument(data: ResumeData): Promise<JsPdfType> {
+  public async createDocument(data: ResumeData, designId?: string): Promise<JsPdfType> {
     const JsPdf = await this.loadJsPdf();
+    const tokens = getDesignPdfTokens(designId);
 
     const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     doc.setFont('helvetica', 'normal');
@@ -89,11 +102,11 @@ export class ExportService {
     });
 
     let cursorY = MARGIN_TOP;
-    cursorY = this.renderHeader(doc, data, cursorY);
-    cursorY = this.renderEntities(doc, 'EXPERIENCE', data.experience, cursorY);
-    cursorY = this.renderEntities(doc, 'PROJECTS', data.projects, cursorY);
-    cursorY = this.renderEntities(doc, 'EDUCATION', data.education, cursorY);
-    this.renderSkills(doc, data.skills, cursorY);
+    cursorY = this.renderHeader(doc, data, cursorY, tokens);
+    cursorY = this.renderEntities(doc, 'EXPERIENCE', data.experience, cursorY, tokens);
+    cursorY = this.renderEntities(doc, 'PROJECTS', data.projects, cursorY, tokens);
+    cursorY = this.renderEntities(doc, 'EDUCATION', data.education, cursorY, tokens);
+    this.renderSkills(doc, data.skills, cursorY, tokens);
 
     return doc;
   }
@@ -145,11 +158,18 @@ export class ExportService {
     doc: JsPdfType,
     text: string,
     cursorY: number,
-    options: { size: number; style?: 'normal' | 'bold'; indent?: number; align?: 'left' | 'center' }
+    options: {
+      size: number;
+      style?: 'normal' | 'bold';
+      indent?: number;
+      align?: 'left' | 'center';
+      color?: Rgb;
+    }
   ): number {
-    const { size, style = 'normal', indent = 0, align = 'left' } = options;
+    const { size, style = 'normal', indent = 0, align = 'left', color = BODY_TEXT } = options;
     doc.setFont('helvetica', style);
     doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
 
     const maxWidth = CONTENT_WIDTH - indent;
     const lines = doc.splitTextToSize(sanitizeForPdf(text), maxWidth) as string[];
@@ -165,15 +185,15 @@ export class ExportService {
     return y;
   }
 
-  private renderHeader(doc: JsPdfType, data: ResumeData, cursorY: number): number {
+  private renderHeader(doc: JsPdfType, data: ResumeData, cursorY: number, tokens: PdfDesignTokens): number {
     let y = cursorY;
     const { personal } = data;
 
     if (personal.name) {
-      y = this.writeText(doc, personal.name, y, { size: FONT_NAME, style: 'bold', align: 'center' });
+      y = this.writeText(doc, personal.name, y, { size: FONT_NAME, style: 'bold', align: 'center', color: tokens.name });
     }
     if (personal.title) {
-      y = this.writeText(doc, personal.title, y, { size: FONT_TITLE, align: 'center' });
+      y = this.writeText(doc, personal.title, y, { size: FONT_TITLE, align: 'center', color: tokens.muted });
     }
 
     // Keep each contact detail as plain text; ATS parsers look for these.
@@ -182,19 +202,19 @@ export class ExportService {
       .filter((value): value is string => Boolean(value));
 
     if (contacts.length) {
-      y = this.writeText(doc, contacts.join('  |  '), y, { size: FONT_CONTACT, align: 'center' });
+      y = this.writeText(doc, contacts.join('  |  '), y, { size: FONT_CONTACT, align: 'center', color: tokens.muted });
     }
 
     return y + SECTION_GAP * 0.6;
   }
 
   /** Draw a section heading with an underline rule. */
-  private renderSectionTitle(doc: JsPdfType, title: string, cursorY: number): number {
+  private renderSectionTitle(doc: JsPdfType, title: string, cursorY: number, tokens: PdfDesignTokens): number {
     // Keep the heading with at least the first line of its content.
     let y = this.ensureSpace(doc, cursorY, LINE_HEIGHT * 3);
-    y = this.writeText(doc, title, y, { size: FONT_SECTION, style: 'bold' });
+    y = this.writeText(doc, title, y, { size: FONT_SECTION, style: 'bold', color: tokens.section });
 
-    doc.setDrawColor(140);
+    doc.setDrawColor(tokens.rule[0], tokens.rule[1], tokens.rule[2]);
     doc.setLineWidth(0.3);
     doc.line(MARGIN_X, y - 0.6, PAGE_WIDTH - MARGIN_X, y - 0.6);
 
@@ -205,11 +225,12 @@ export class ExportService {
     doc: JsPdfType,
     title: string,
     entities: TimeBoundedEntity[] | undefined,
-    cursorY: number
+    cursorY: number,
+    tokens: PdfDesignTokens
   ): number {
     if (!entities?.length) return cursorY;
 
-    let y = this.renderSectionTitle(doc, title, cursorY);
+    let y = this.renderSectionTitle(doc, title, cursorY, tokens);
 
     entities.forEach(entity => {
       // Sanitised up front: the heading and period are drawn directly below
@@ -248,12 +269,13 @@ export class ExportService {
           // Right-align the period on the first heading line.
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(FONT_BODY);
+          doc.setTextColor(tokens.muted[0], tokens.muted[1], tokens.muted[2]);
           doc.text(period, PAGE_WIDTH - MARGIN_X - periodWidth, headingTop, { baseline: 'top' });
         } else {
           y = this.writeText(doc, heading, y, { size: FONT_BODY, style: 'bold' });
         }
       } else if (entity.period) {
-        y = this.writeText(doc, entity.period, y, { size: FONT_BODY });
+        y = this.writeText(doc, entity.period, y, { size: FONT_BODY, color: tokens.muted });
       }
 
       entity.description?.filter(Boolean).forEach(line => {
@@ -271,11 +293,12 @@ export class ExportService {
   private renderSkills(
     doc: JsPdfType,
     skills: (string | SkillCategory)[] | undefined,
-    cursorY: number
+    cursorY: number,
+    tokens: PdfDesignTokens
   ): number {
     if (!skills?.length) return cursorY;
 
-    let y = this.renderSectionTitle(doc, 'SKILLS', cursorY);
+    let y = this.renderSectionTitle(doc, 'SKILLS', cursorY, tokens);
 
     const plain = skills.filter((skill): skill is string => typeof skill === 'string');
     const grouped = skills.filter((skill): skill is SkillCategory => typeof skill !== 'string');
