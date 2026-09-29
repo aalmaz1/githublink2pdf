@@ -21,7 +21,7 @@ const ko: TranslationDict = {
     atsCheckBtn: 'ATS 검사',
     loadingGitHub: 'GitHub 데이터를 불러오는 중...',
     invalidUsername: '유효한 GitHub 사용자명을 입력하세요',
-    exportSuccess: '인쇄 대화상자가 열렸습니다 — "PDF로 저장", A4, 여백 "기본", 배율 100%를 선택하세요',
+    exportSuccess: '인쇄 대화상자가 열렸습니다 — "PDF로 저장"을 선택하면 이 미리보기와 정확히 같은 파일이 만들어집니다',
     exportError: '인쇄 대화상자를 열 수 없습니다',
     jsonSaved: 'JSON 파일이 다운로드되었습니다',
     profileLoaded: '프로필을 성공적으로 불러왔습니다!',
