@@ -25,7 +25,7 @@ export const en = {
   atsCheckBtn: 'ATS Check',
   loadingGitHub: 'Loading GitHub data...',
   invalidUsername: 'Please enter a valid GitHub username',
-  exportSuccess: 'Print dialog opened - choose "Save as PDF" in it',
+  exportSuccess: 'Print dialog opened — choose "Save as PDF", A4, margins "Default", scale 100%',
   exportError: 'Could not open the print dialog',
   jsonSaved: 'JSON file downloaded',
   profileLoaded: 'Profile loaded successfully!',

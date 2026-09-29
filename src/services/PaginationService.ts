@@ -22,6 +22,11 @@
  * `[data-field]` elements, the spacers are `contenteditable="false"`, and
  * the print stylesheet removes them (`display: none`) before the PDF is
  * produced — print fragmentation is computed by the browser alone.
+ *
+ * After the cuts are placed, the sheet is padded to a whole number of pages
+ * (`min-height`), so a two-page resume is previewed as two complete A4
+ * sheets rather than a sheet cut off mid-page. Print pins `min-height` back
+ * to 0, and trailing blank space produces no extra printed pages.
  */
 
 /** CSS px per mm at the standard 96 dpi. */
@@ -201,7 +206,10 @@ export class PaginationService {
     if (sheetBox.width <= 0 && sheetBox.height <= 0) return; // not rendered
 
     const items = this.collectItems(container, layoutTopOf, zoom);
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      container.style.minHeight = '';
+      return;
+    }
 
     const breaks = planPageBreaks(
       items.map(({ el: _el, top, height, canPush, avoidAfter }) => ({
@@ -212,9 +220,24 @@ export class PaginationService {
       })),
       this.metrics
     );
-    if (breaks.length === 0) return;
+    if (breaks.length > 0) {
+      this.applyBreaks(container, items, breaks, layoutTopOf);
+    }
 
-    this.applyBreaks(container, items, breaks, layoutTopOf);
+    this.padToWholePages(container, items);
+  }
+
+  /**
+   * Pad the sheet to a whole number of pages, so the preview ends with a
+   * complete blank page instead of stopping mid-sheet. What is printed is
+   * unaffected: the print stylesheet pins `min-height` back to 0, and extra
+   * blank space below the content generates no extra printed pages.
+   */
+  private padToWholePages(container: HTMLElement, items: CollectedItem[]): void {
+    // Symmetric geometry: the bottom margin equals the top margin.
+    const used = Math.max(...items.map(item => item.top + item.height)) + this.metrics.contentTop;
+    const pages = Math.max(1, Math.ceil((used - EPSILON) / this.metrics.pageStride));
+    container.style.minHeight = `${pages * this.metrics.pageStride}px`;
   }
 
   /** Remove every spacer this service has inserted. */

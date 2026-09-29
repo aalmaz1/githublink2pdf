@@ -253,6 +253,25 @@ describe('PaginationService', () => {
     new PaginationService().update(container);
 
     expect(container.querySelectorAll('.page-break-spacer').length).toBe(0);
+    // The sheet still previews as exactly one whole page.
+    expect(parseFloat(container.style.minHeight))
+      .toBeCloseTo(DEFAULT_PAGE_METRICS.pageStride, 1);
+  });
+
+  it('pads a two-page resume to two whole pages', () => {
+    const container = buildSheet();
+    container.appendChild(section([heading(68.031, 40), entry(108.031, 940), entry(1100, 120)]));
+
+    new PaginationService().update(container);
+
+    expect(parseFloat(container.style.minHeight))
+      .toBeCloseTo(2 * DEFAULT_PAGE_METRICS.pageStride, 1);
+  });
+
+  it('clears the padded page height on an empty sheet', () => {
+    const container = buildSheet();
+    new PaginationService().update(container);
+    expect(container.style.minHeight).toBe('');
   });
 
   it('replaces stale spacers on re-run instead of stacking them', () => {
