@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
+  chooseSheetDensity,
   DEFAULT_PAGE_METRICS,
   PaginationService,
+  pageIndexOf,
   PX_PER_MM,
   PageMetrics,
   PlannedItem,
@@ -322,5 +324,185 @@ describe('PaginationService', () => {
 
     expect(updateSpy).toHaveBeenCalledTimes(1);
     expect(updateSpy).toHaveBeenCalledWith(container);
+  });
+});
+
+describe('chooseSheetDensity', () => {
+  it('keeps the authored rhythm when the resume already fits', () => {
+    const pagesAt = vi.fn(() => 2);
+    expect(chooseSheetDensity(pagesAt)).toBe(1);
+    // …and never even probes a denser rhythm.
+    expect(pagesAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('picks the mildest density that brings the resume back into budget', () => {
+    const seen: number[] = [];
+    const density = chooseSheetDensity(candidate => {
+      seen.push(candidate);
+      // Two rungs do not buy enough room; the third does.
+      return candidate >= 0.97 ? 3 : 2;
+    });
+
+    expect(density).toBe(0.96);
+    expect(seen).toEqual([1, 0.98, 0.96]);
+  });
+
+  it('gives up rather than squeezing past the densest rung', () => {
+    expect(chooseSheetDensity(() => 5, { ladder: [0.98, 0.9] })).toBeNull();
+  });
+
+  it('honours a custom budget and ladder', () => {
+    expect(chooseSheetDensity(() => 3, { targetPages: 3 })).toBe(1);
+    expect(
+      chooseSheetDensity(pages => (pages <= 0.5 ? 2 : 3), { ladder: [0.5] })
+    ).toBe(0.5);
+  });
+
+  it('ignores ladder rungs that are not a compaction', () => {
+    const seen: number[] = [];
+    const density = chooseSheetDensity(
+      candidate => {
+        seen.push(candidate);
+        return 3;
+      },
+      { ladder: [1.1] }
+    );
+
+    expect(density).toBeNull();
+    expect(seen).toEqual([1]);
+  });
+});
+
+describe('pageIndexOf', () => {
+  it('maps a y coordinate to the sheet it falls on', () => {
+    expect(pageIndexOf(METRICS.contentTop, METRICS)).toBe(1);
+    expect(pageIndexOf(METRICS.contentTop + METRICS.contentHeight, METRICS)).toBe(1);
+    expect(pageIndexOf(METRICS.contentTop + METRICS.pageStride, METRICS)).toBe(2);
+    expect(pageIndexOf(METRICS.contentTop + METRICS.pageStride * 2 + 10, METRICS)).toBe(3);
+    expect(pageIndexOf(0, METRICS)).toBe(1); // above the first page's content top
+  });
+});
+
+describe('PaginationService density autofit', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  /** A sheet whose blocks shrink with the rhythm density, like a real layout. */
+  function densityAwareSheet(
+    blocks: Array<{
+      el: HTMLElement;
+      top: (density: number) => number;
+      height: (density: number) => number;
+    }>
+  ): { container: HTMLElement; applied: () => number } {
+    const container = document.createElement('div');
+    stubRect(container, 0, 4000);
+    document.body.appendChild(container);
+
+    const applied = (): number =>
+      parseFloat(container.style.getPropertyValue('--sheet-density')) || 1;
+
+    for (const block of blocks) {
+      block.el.getBoundingClientRect = () =>
+        makeRect(block.top(applied()), block.height(applied()));
+    }
+    return { container, applied };
+  }
+
+  function entityBlock(section: HTMLElement): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'entity-item';
+    el.textContent = 'x';
+    section.appendChild(el);
+    return el;
+  }
+
+  it('tightens the rhythm — and reports it — when the plan would spill to a third page', () => {
+    const section = document.createElement('div');
+    section.className = 'section-block';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Experience';
+    section.appendChild(heading);
+    // One nearly full first page, then two entries whose tail is a shade too
+    // tall for page 2 (METRICS: page 1 68..1054, page 2 1191..2177).
+    const filler = entityBlock(section);
+    const first = entityBlock(section);
+    const second = entityBlock(section);
+    const third = entityBlock(section);
+
+    const { container, applied } = densityAwareSheet([
+      { el: heading, top: () => 68, height: d => 40 * d },
+      { el: filler, top: d => 68 + 40 * d, height: d => 700 * d },
+      { el: first, top: d => 68 + 740 * d, height: d => 200 * d },
+      { el: second, top: d => 68 + 940 * d, height: d => 450 * d },
+      { el: third, top: d => 68 + 1390 * d, height: d => 550 * d }
+    ]);
+    container.appendChild(section);
+
+    const reported: number[] = [];
+    const service = new PaginationService({ onDensityChange: d => reported.push(d) });
+    service.update(container);
+
+    expect(applied()).toBeGreaterThan(0);
+    expect(applied()).toBeLessThan(1);
+    // The tightened rhythm is announced once, as a settled value…
+    expect(reported).toEqual([applied()]);
+    // …the entry the page edge would cut moved whole to page 2…
+    expect(container.querySelectorAll('.page-break-spacer').length).toBe(1);
+    // …and the preview still pads to exactly two sheets.
+    expect(parseFloat(container.style.minHeight))
+      .toBeCloseTo(2 * DEFAULT_PAGE_METRICS.pageStride, 1);
+
+    // A re-measure settles on the same rhythm without announcing it again.
+    service.update(container);
+    expect(applied()).toBeLessThan(1);
+    expect(reported.length).toBe(1);
+  });
+
+  it('leaves the design as authored when even the densest rhythm cannot fit', () => {
+    const section = document.createElement('div');
+    section.className = 'section-block';
+    const blocks = Array.from({ length: 6 }, (_, index) => {
+      const el = entityBlock(section);
+      return {
+        el,
+        top: (density: number) => 68 + index * 900 * density,
+        height: (density: number) => 900 * density
+      };
+    });
+
+    const { container, applied } = densityAwareSheet(blocks);
+    container.appendChild(section);
+
+    new PaginationService().update(container);
+
+    // Six 900px entries cannot fit two pages at any rung of the ladder: the
+    // resume simply runs longer, with the design's spacing intact.
+    expect(container.style.getPropertyValue('--sheet-density')).toBe('');
+    expect(applied()).toBe(1);
+    expect(parseFloat(container.style.minHeight)).toBeGreaterThan(2 * METRICS.pageStride);
+  });
+
+  it('does not touch the rhythm of a resume that fits two pages', () => {
+    const container = document.createElement('div');
+    stubRect(container, 0, 4000);
+    document.body.appendChild(container);
+    const section = document.createElement('div');
+    section.className = 'section-block';
+    const heading = document.createElement('h3');
+    stubRect(heading, 68.031, 40);
+    const entry = document.createElement('div');
+    entry.className = 'entity-item';
+    stubRect(entry, 108.031, 400);
+    section.append(heading, entry);
+    container.appendChild(section);
+
+    const changes: number[] = [];
+    new PaginationService({ onDensityChange: d => changes.push(d) }).update(container);
+
+    expect(container.style.getPropertyValue('--sheet-density')).toBe('');
+    expect(changes).toEqual([]);
   });
 });

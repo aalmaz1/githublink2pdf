@@ -27,6 +27,23 @@
  * (`min-height`), so a two-page resume is previewed as two complete A4
  * sheets rather than a sheet cut off mid-page. Print pins `min-height` back
  * to 0, and trailing blank space produces no extra printed pages.
+ *
+ * ---- Density autofit -------------------------------------------------------
+ *
+ * Keep-together rules are what make a slightly-too-long resume expensive: the
+ * entry the page edge would slice moves whole to the next page and leaves the
+ * rest of its page empty, so a resume that overflows its budget by a few
+ * percent ends up with a nearly blank last sheet — the final section (usually
+ * Skills) alone at the top of page 3 while half of page 2 stands empty.
+ *
+ * When the plan needs more than {@link DEFAULT_TARGET_PAGES} sheets, the sheet
+ * is therefore re-measured at a slightly denser vertical rhythm — line height,
+ * section and entry spacing, list spacing — and the mildest density the resume
+ * fits at is kept (see {@link chooseSheetDensity}). Type size, page box and
+ * the 18 mm margins never change, so the document still prints as the A4 sheet
+ * the user approved; only the air between the lines gives way. A resume that
+ * needs more than the ladder can buy keeps its design untouched and simply
+ * runs longer.
  */
 
 /** CSS px per mm at the standard 96 dpi. */
@@ -54,6 +71,58 @@ export const DEFAULT_PAGE_METRICS: PageMetrics = {
   contentHeight: (PAGE_HEIGHT_MM - PAGE_PADDING_MM * 2) * PX_PER_MM,
   pageStride: PAGE_HEIGHT_MM * PX_PER_MM
 };
+
+/**
+ * Custom property carrying the sheet's rhythm density: 1 is the design as
+ * authored, 0.94 is six percent less air between the blocks. Read by the
+ * `--sheet-unit` / `--leading-*` rules in styles.css; set on the sheet only,
+ * so the UI chrome keeps its own spacing.
+ */
+export const SHEET_DENSITY_VAR = '--sheet-density';
+
+/** Sheets a resume is packed into before the density autofit lets it grow. */
+export const DEFAULT_TARGET_PAGES = 2;
+
+/**
+ * Densities the autofit may try, mildest first. The ladder is deliberately
+ * short and shallow: a couple of percent of leading is invisible on paper,
+ * while 10 % is the point where the text starts to look squeezed — past it,
+ * an extra sheet is the better answer.
+ */
+export const DEFAULT_FIT_LADDER: readonly number[] = [0.98, 0.96, 0.94, 0.92, 0.9];
+
+/** Page (1-based) a y coordinate falls on, in the sheet's layout px. */
+export function pageIndexOf(top: number, metrics: PageMetrics): number {
+  return Math.max(
+    1,
+    Math.floor((top - metrics.contentTop + EPSILON) / metrics.pageStride) + 1
+  );
+}
+
+/**
+ * Pick the density to typeset the sheet at.
+ *
+ * `pagesAt(density)` measures the flow as it would be laid out at a given
+ * density — the caller owns the DOM, this function owns the policy: 1 when the
+ * resume already fits its budget, the mildest density that brings it within
+ * the budget otherwise, and `null` when even the densest rung of the ladder is
+ * not enough (the caller then keeps the design as authored rather than
+ * shrinking the type into a block).
+ */
+export function chooseSheetDensity(
+  pagesAt: (density: number) => number,
+  options: { targetPages?: number; ladder?: readonly number[] } = {}
+): number | null {
+  const targetPages = options.targetPages ?? DEFAULT_TARGET_PAGES;
+  const ladder = options.ladder ?? DEFAULT_FIT_LADDER;
+
+  if (pagesAt(1) <= targetPages) return 1;
+  for (const density of ladder) {
+    if (density >= 1) continue; // not a compaction
+    if (pagesAt(density) <= targetPages) return density;
+  }
+  return null;
+}
 
 /**
  * One fragmentation candidate: a block the print engine keeps whole, listed
@@ -117,8 +186,7 @@ export function planPageBreaks(
 
   const pageStart = (page: number): number =>
     metrics.contentTop + (page - 1) * metrics.pageStride;
-  const pageOf = (top: number): number =>
-    Math.max(1, Math.floor((top - metrics.contentTop + EPSILON) / metrics.pageStride) + 1);
+  const pageOf = (top: number): number => pageIndexOf(top, metrics);
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -158,6 +226,23 @@ interface CollectedItem extends PlannedItem {
   el: HTMLElement;
 }
 
+export interface PaginationOptions {
+  metrics?: PageMetrics;
+  /**
+   * Sheets the density autofit packs a resume into. Pass `Infinity` to keep
+   * every resume at the design's authored rhythm.
+   */
+  targetPages?: number;
+  /** Densities the autofit may try, mildest first. */
+  fitLadder?: readonly number[];
+  /**
+   * Called when the applied density changes — the preview can then tell the
+   * user why the spacing just tightened. Not called for re-measurements that
+   * keep the same density.
+   */
+  onDensityChange?: (density: number) => void;
+}
+
 /**
  * Measures the preview and pads the inter-page gaps so it shows real pages.
  * The class holds no state besides the debounce timer, so one instance can
@@ -165,10 +250,20 @@ interface CollectedItem extends PlannedItem {
  */
 export class PaginationService {
   private readonly metrics: PageMetrics;
+  private readonly targetPages: number;
+  private readonly fitLadder: readonly number[];
+  private readonly onDensityChange?: (density: number) => void;
   private timer: number | null = null;
+  /** Density currently applied to the sheet (1 = the design as authored). */
+  private density = 1;
+  /** Density of the last finished layout — what subscribers were told about. */
+  private publishedDensity = 1;
 
-  constructor(options: { metrics?: PageMetrics } = {}) {
+  constructor(options: PaginationOptions = {}) {
     this.metrics = options.metrics ?? DEFAULT_PAGE_METRICS;
+    this.targetPages = options.targetPages ?? DEFAULT_TARGET_PAGES;
+    this.fitLadder = options.fitLadder ?? DEFAULT_FIT_LADDER;
+    this.onDensityChange = options.onDensityChange;
   }
 
   /**
@@ -205,7 +300,9 @@ export class PaginationService {
     const sheetBox = container.getBoundingClientRect();
     if (sheetBox.width <= 0 && sheetBox.height <= 0) return; // not rendered
 
-    const items = this.collectItems(container, layoutTopOf, zoom);
+    // Decide the rhythm first: the cuts are planned on the layout the density
+    // produces, and the spacers are measured against those same boxes.
+    const items = this.fitToPages(container, layoutTopOf, zoom);
     if (items.length === 0) {
       container.style.minHeight = '';
       return;
@@ -225,6 +322,92 @@ export class PaginationService {
     }
 
     this.padToWholePages(container, items);
+    this.publishDensity();
+  }
+
+  /**
+   * Measure the clean flow and, if the plan would run past the page budget,
+   * look for the mildest denser rhythm the resume still fits at. Returns the
+   * layout the cuts must be planned on — the authored one when the resume
+   * fits as is, or the ladder is exhausted.
+   */
+  private fitToPages(
+    container: HTMLElement,
+    layoutTopOf: (el: HTMLElement) => number,
+    zoom: number
+  ): CollectedItem[] {
+    this.applyDensity(container, 1);
+    const natural = this.collectItems(container, layoutTopOf, zoom);
+    if (natural.length === 0) return natural;
+
+    let packed = natural;
+    const density = chooseSheetDensity(
+      candidate => {
+        if (candidate !== 1) {
+          this.applyDensity(container, candidate);
+          packed = this.collectItems(container, layoutTopOf, zoom);
+        }
+        return this.plannedPages(candidate === 1 ? natural : packed);
+      },
+      { targetPages: this.targetPages, ladder: this.fitLadder }
+    );
+
+    if (density === null || density === 1) {
+      // Either the resume already fits, or no rung of the ladder does: keep
+      // the design as authored. `natural` was measured at density 1, which is
+      // exactly what the sheet is put back to here.
+      this.applyDensity(container, 1);
+      return natural;
+    }
+
+    this.applyDensity(container, density);
+    return packed;
+  }
+
+  /**
+   * Sheets the flow will occupy once the planner has placed its cuts: every
+   * spacer becomes one `.print-page` box (see PrintPaginator), so the page the
+   * last printable block lands on after the last shift is the page count.
+   */
+  private plannedPages(items: CollectedItem[]): number {
+    const printable = items.filter(item => item.canPush);
+    if (printable.length === 0) return 1;
+
+    const breaks = planPageBreaks(items, this.metrics);
+    const last = printable[printable.length - 1];
+    let lastTop = last.top;
+    let page = 1;
+    if (breaks.length > 0) {
+      const cut = breaks[breaks.length - 1];
+      // Blocks after the final cut keep their offset from its anchor, which
+      // now sits at the top of its page.
+      lastTop += cut.targetTop - items[cut.anchor].top;
+      page = cut.page;
+    }
+    return Math.max(page, pageIndexOf(lastTop + last.height, this.metrics));
+  }
+
+  /** Set the sheet's rhythm density (see SHEET_DENSITY_VAR in styles.css). */
+  private applyDensity(container: HTMLElement, density: number): void {
+    if (density === this.density) return;
+    if (density === 1) {
+      container.style.removeProperty(SHEET_DENSITY_VAR);
+    } else {
+      container.style.setProperty(SHEET_DENSITY_VAR, String(density));
+    }
+    this.density = density;
+  }
+
+  /**
+   * Announce the density the finished layout uses. The measurement itself
+   * flips the sheet back to 1 on every pass, so only the settled value is
+   * reported — a subscriber hears about a change of typesetting, not about
+   * the intermediate probes of a single re-measure.
+   */
+  private publishDensity(): void {
+    if (this.density === this.publishedDensity) return;
+    this.publishedDensity = this.density;
+    this.onDensityChange?.(this.density);
   }
 
   /**

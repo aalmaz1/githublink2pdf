@@ -63,6 +63,9 @@ export const en = {
   resumeSectionEducation: 'Education',
   resumeSectionSkills: 'Skills',
 
+  // Shown when the density autofit packs an over-long resume back into two pages.
+  compactFitNote: 'Spacing tightened slightly so the resume fits two pages',
+
   // Placeholder hints for empty resume entries, drawn via CSS `data-placeholder`.
   placeholderJobTitle: 'Job title',
   placeholderDegree: 'Degree',

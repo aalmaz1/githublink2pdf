@@ -28,7 +28,23 @@ const LANG_FLAGS: Record<Lang, string> = {
 };
 const atsService = new ATSService();
 const exportService = new ExportService();
-const paginationService = new PaginationService();
+
+/**
+ * The density the last finished layout was typeset at (< 1 once the autofit
+ * has packed the resume into its two-page budget). Kept here so the user is
+ * told when the spacing changes under them, but only once per squeeze —
+ * re-measures that stay compact stay silent.
+ */
+let compacted = false;
+const paginationService = new PaginationService({
+  onDensityChange: density => {
+    const isCompacted = density < 1;
+    if (isCompacted && !compacted) {
+      showNotification(tr(currentLang, 'compactFitNote'), 'info');
+    }
+    compacted = isCompacted;
+  }
+});
 const printPaginator = new PrintPaginator();
 
 /**

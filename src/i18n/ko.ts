@@ -65,6 +65,7 @@ const ko: TranslationDict = {
   placeholderCompany: '회사',
   placeholderSchool: '학교',
   placeholderPeriod: '예: 2021 — 현재',
+  compactFitNote: '두 페이지에 맞도록 간격을 조금 줄였습니다',
   placeholderAchievement: '수행한 작업과 달성한 결과'
 };
 

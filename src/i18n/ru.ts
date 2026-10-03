@@ -65,6 +65,7 @@ const ru: TranslationDict = {
   placeholderCompany: 'Компания',
   placeholderSchool: 'Учебное заведение',
   placeholderPeriod: 'например, 2021 — Наст. время',
+  compactFitNote: 'Интервалы слегка уменьшены, чтобы резюме уложилось в две страницы',
   placeholderAchievement: 'Что вы делали и чего достигли'
 };
 
