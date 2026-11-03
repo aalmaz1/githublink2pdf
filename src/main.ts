@@ -17,6 +17,16 @@ import { logger } from './utils/logger';
 let currentResumeData: ResumeData | null = null;
 let currentTextAlign: 'left' | 'center' | 'justify' = 'left';
 let currentLang: Lang = defaultLang;
+/**
+ * The language the resume document itself is typeset in.
+ *
+ * The resume is a document the user edits, not part of the interface: its
+ * section headings and field hints go into the exported PDF, so they must not
+ * follow the interface language when the user switches it. It is chosen once,
+ * when the document is first rendered, and stays put afterwards — switching
+ * the interface only re-labels the chrome around it.
+ */
+let resumeLang: Lang = defaultLang;
 let currentDesign: string = 'classic'; // Track current design
 let langMenuOpen = false;
 
@@ -60,6 +70,10 @@ function buildPrintHandoff(data: ResumeData): PrintHandoff {
     design: currentDesign,
     align: currentTextAlign,
     lang: currentLang,
+    // The document language travels with the resume: the printing tab has to
+    // typeset the same headings the preview was showing, whatever language the
+    // interface happened to be in.
+    resumeLang,
     fileName: `${slugify(data.personal.name)}-resume.pdf`
   };
 }
@@ -158,14 +172,12 @@ async function updateInterfaceLanguage(lang: Lang): Promise<void> {
   if (exportHintEl) exportHintEl.title = t.exportBtnHint;
   setAria('ats-check', t.atsCheckBtn);
 
-  // Re-render the resume and the open ATS panel so section headings and
-  // labels follow the newly selected language.
+  // Re-render the open ATS panel so its labels follow the newly selected
+  // language. The resume itself is deliberately left alone: it is typeset in
+  // `resumeLang`, not in the interface language, so the document the user is
+  // editing — and everything that will be printed — stays as it was.
   const openPanel = document.getElementById('ats-panel');
   const liveData = getCurrentResumeData();
-  const resumeContainer = document.getElementById('resume-container');
-  if (resumeContainer && liveData) {
-    updateUI(liveData, resumeContainer);
-  }
   if (openPanel && !openPanel.classList.contains('hidden') && liveData) {
     showATSResultPanel(atsService.analyze(liveData));
   }
@@ -203,7 +215,7 @@ async function updateInterfaceLanguage(lang: Lang): Promise<void> {
  */
 function updateUI(data: ResumeData, container: HTMLElement): void {
   currentResumeData = data;
-  renderResume(data, container, currentLang);
+  renderResume(data, container, resumeLang);
   applyTextAlign(container, currentTextAlign);
 }
 
@@ -384,6 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedLang && ['en', 'ru', 'ko'].includes(savedLang)) {
     currentLang = savedLang;
   }
+  // The document starts out in the language the app opens in and keeps it.
+  resumeLang = currentLang;
   
   // A framed window asks this tab to print the resume it was showing
   // (see ExportService): restore that state before the first render.
@@ -394,6 +408,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (['en', 'ru', 'ko'].includes(printHandoff.lang)) {
       currentLang = printHandoff.lang as Lang;
     }
+    // Old handoffs (encoded before the document language travelled with the
+    // resume) only carry the interface language — fall back to it.
+    const handoffResumeLang = printHandoff.resumeLang ?? printHandoff.lang;
+    resumeLang = (['en', 'ru', 'ko'].includes(handoffResumeLang)
+      ? handoffResumeLang
+      : currentLang) as Lang;
     if (['left', 'center', 'justify'].includes(printHandoff.align)) {
       currentTextAlign = printHandoff.align;
     }
