@@ -50,8 +50,8 @@
 export const PX_PER_MM = 96 / 25.4;
 
 /** A4 sheet geometry — keep in sync with the `--page-*` variables in styles.css. */
-export const PAGE_HEIGHT_MM = 297;
-export const PAGE_PADDING_MM = 18;
+const PAGE_HEIGHT_MM = 297;
+const PAGE_PADDING_MM = 18;
 
 /**
  * Page-box numbers, in layout px (the sheet's own coordinate space, i.e.
@@ -78,10 +78,10 @@ export const DEFAULT_PAGE_METRICS: PageMetrics = {
  * `--sheet-unit` / `--leading-*` rules in styles.css; set on the sheet only,
  * so the UI chrome keeps its own spacing.
  */
-export const SHEET_DENSITY_VAR = '--sheet-density';
+const SHEET_DENSITY_VAR = '--sheet-density';
 
 /** Sheets a resume is packed into before the density autofit lets it grow. */
-export const DEFAULT_TARGET_PAGES = 2;
+const DEFAULT_TARGET_PAGES = 2;
 
 /**
  * Densities the autofit may try, mildest first. The ladder is deliberately
@@ -89,7 +89,7 @@ export const DEFAULT_TARGET_PAGES = 2;
  * while 10 % is the point where the text starts to look squeezed — past it,
  * an extra sheet is the better answer.
  */
-export const DEFAULT_FIT_LADDER: readonly number[] = [0.98, 0.96, 0.94, 0.92, 0.9];
+const DEFAULT_FIT_LADDER: readonly number[] = [0.98, 0.96, 0.94, 0.92, 0.9];
 
 /** Page (1-based) a y coordinate falls on, in the sheet's layout px. */
 export function pageIndexOf(top: number, metrics: PageMetrics): number {
@@ -146,7 +146,7 @@ export interface PlannedItem {
 }
 
 /** A planned page cut: the block at `anchor` and everything after starts on `page`. */
-export interface PlannedBreak {
+interface PlannedBreak {
   anchor: number;
   /** 1-based number of the page the anchor block lands on. */
   page: number;
@@ -226,7 +226,7 @@ interface CollectedItem extends PlannedItem {
   el: HTMLElement;
 }
 
-export interface PaginationOptions {
+interface PaginationOptions {
   metrics?: PageMetrics;
   /**
    * Sheets the density autofit packs a resume into. Pass `Infinity` to keep
@@ -318,7 +318,7 @@ export class PaginationService {
       this.metrics
     );
     if (breaks.length > 0) {
-      this.applyBreaks(container, items, breaks, layoutTopOf);
+      this.applyBreaks(items, breaks, layoutTopOf);
     }
 
     this.padToWholePages(container, items);
@@ -496,7 +496,6 @@ export class PaginationService {
    * order — each measurement already includes the spacers sized before it.
    */
   private applyBreaks(
-    container: HTMLElement,
     items: CollectedItem[],
     breaks: PlannedBreak[],
     layoutTopOf: (el: HTMLElement) => number
