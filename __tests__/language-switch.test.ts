@@ -31,18 +31,35 @@ describe('interface language switching', () => {
     dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   }
 
-  /** Let the lazily imported ru/ko dictionary resolve and the UI settle. */
-  async function settle(): Promise<void> {
-    for (let i = 0; i < 5; i++) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+  /**
+   * Poll until `condition` holds.
+   *
+   * The ru/ko dictionaries are lazily imported chunks, so a switch completes
+   * on a promise: waiting a fixed number of event-loop ticks is not enough
+   * (it passed locally and failed under the slower, instrumented CI run).
+   */
+  async function waitUntil(condition: () => boolean): Promise<void> {
+    const deadline = Date.now() + 5000;
+    while (!condition()) {
+      if (Date.now() > deadline) {
+        throw new Error('timed out waiting for the language switch to settle');
+      }
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
+  }
+
+  /** The first render happens synchronously; wait until it is on screen. */
+  async function settle(): Promise<void> {
+    await waitUntil(() => (dom.window.document.getElementById('resume-container')?.children.length ?? 0) > 0);
   }
 
   async function switchTo(lang: string): Promise<void> {
     const option = dom.window.document.querySelector<HTMLButtonElement>(`.lang-option[data-lang="${lang}"]`);
     expect(option).toBeTruthy();
     option!.click();
-    await settle();
+    // `localStorage` is written as the last step of updateInterfaceLanguage,
+    // so it is the signal that the new dictionary has actually been applied.
+    await waitUntil(() => dom.window.localStorage.getItem('resume-lang') === lang);
   }
 
   const headingText = (section: string): string =>
