@@ -499,10 +499,6 @@ export class ATSService {
     this.jobDescription = description;
   }
 
-  getJobDescription(): string {
-    return this.jobDescription;
-  }
-
   analyze(data: ResumeData): ATSResult {
     const issues: ATSIssue[] = [];
     const profile = this.detectResumeProfile(data);
@@ -1269,25 +1265,17 @@ export class ATSService {
         message: withQuantified + ' description' + (withQuantified > 1 ? 's' : '') + ' include quantifiable achievements',
         category: 'experience'
       });
-    } else if (withQuantified > 0) {
-      score += 10;
-      const metricEntries = entriesMissingCheck(data.experience, isQuantified);
-      const metricAdvice = metricEntries.length > 0
-        ? ` Add a number, %, or $ to: ${metricEntries.slice(0, 3).join(', ')}`
-        : '';
-      issues.push({
-        type: 'warning',
-        message: `Only ${withQuantified}/${totalDescriptions} descriptions have metrics.${metricAdvice}`,
-        category: 'experience'
-      });
     } else if (totalDescriptions > 0) {
+      if (withQuantified > 0) score += 10;
       const metricEntries = entriesMissingCheck(data.experience, isQuantified);
       const metricAdvice = metricEntries.length > 0
         ? ` Add a number, %, or $ to: ${metricEntries.slice(0, 3).join(', ')}`
         : '';
       issues.push({
         type: 'warning',
-        message: `No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact${metricAdvice}`,
+        message: withQuantified > 0
+          ? `Only ${withQuantified}/${totalDescriptions} descriptions have metrics.${metricAdvice}`
+          : `No quantified achievements. Add metrics (%, $, numbers) to strengthen your impact${metricAdvice}`,
         category: 'experience'
       });
     }
