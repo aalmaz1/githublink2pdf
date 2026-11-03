@@ -26,6 +26,13 @@ export interface PrintHandoff {
   design: string;
   align: 'left' | 'center' | 'justify';
   lang: string;
+  /**
+   * Language the resume document is typeset in. Separate from `lang` because
+   * the interface language may have been switched after the document was
+   * rendered; the printed pages have to match the preview either way. Older
+   * handoffs omit it — treat `lang` as the document language then.
+   */
+  resumeLang?: string;
   /** Download name, e.g. `ada-lovelace-resume.pdf`. */
   fileName: string;
 }
